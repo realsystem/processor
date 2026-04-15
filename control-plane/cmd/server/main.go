@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -158,8 +159,12 @@ func main() {
 	// Apply logging middleware
 	handler := middleware.Logging(mux)
 
+	// Create context for background workers
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Start background workers
-	go startBackgroundWorkers(jobsService, webhookService, emailService)
+	go startBackgroundWorkers(ctx, jobsService, webhookService, emailService)
 
 	// Start HTTP server
 	addr := fmt.Sprintf(":%d", cfg.HTTPPort)
@@ -171,16 +176,29 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Graceful shutdown
+	// Setup graceful shutdown
+	shutdown := make(chan error, 1)
 	go func() {
 		sigint := make(chan os.Signal, 1)
 		signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
 		<-sigint
 
-		log.Println("Shutting down server...")
-		if err := server.Close(); err != nil {
-			log.Printf("HTTP server Close error: %v", err)
+		log.Println("Received shutdown signal, stopping server gracefully...")
+
+		// Stop background workers
+		cancel()
+
+		// Give server 30 seconds to shut down gracefully
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			shutdown <- fmt.Errorf("HTTP server shutdown error: %w", err)
+			return
 		}
+
+		log.Println("Server shutdown complete")
+		shutdown <- nil
 	}()
 
 	log.Printf("Server listening on %s", addr)
@@ -188,21 +206,33 @@ func main() {
 		log.Fatalf("HTTP server error: %v", err)
 	}
 
-	log.Println("Server stopped")
+	// Wait for graceful shutdown to complete
+	if err := <-shutdown; err != nil {
+		log.Printf("Shutdown error: %v", err)
+		os.Exit(1)
+	}
+
+	log.Println("Server stopped cleanly")
 }
 
-func startBackgroundWorkers(jobsService *jobs.Service, webhookService *webhooks.Service, emailService *email.Service) {
+func startBackgroundWorkers(ctx context.Context, jobsService *jobs.Service, webhookService *webhooks.Service, emailService *email.Service) {
 	// Release expired leases every 30 seconds
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 
-		for range ticker.C {
-			count, err := jobsService.ReleaseExpiredLeases()
-			if err != nil {
-				log.Printf("Error releasing expired leases: %v", err)
-			} else if count > 0 {
-				log.Printf("Released %d expired leases", count)
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("Stopping lease expiration worker")
+				return
+			case <-ticker.C:
+				count, err := jobsService.ReleaseExpiredLeases()
+				if err != nil {
+					log.Printf("Error releasing expired leases: %v", err)
+				} else if count > 0 {
+					log.Printf("Released %d expired leases", count)
+				}
 			}
 		}
 	}()
@@ -212,12 +242,18 @@ func startBackgroundWorkers(jobsService *jobs.Service, webhookService *webhooks.
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 
-		for range ticker.C {
-			count, err := webhookService.ProcessPendingDeliveries(10)
-			if err != nil {
-				log.Printf("Error processing webhook deliveries: %v", err)
-			} else if count > 0 {
-				log.Printf("Processed %d webhook deliveries", count)
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("Stopping webhook delivery worker")
+				return
+			case <-ticker.C:
+				count, err := webhookService.ProcessPendingDeliveries(10)
+				if err != nil {
+					log.Printf("Error processing webhook deliveries: %v", err)
+				} else if count > 0 {
+					log.Printf("Processed %d webhook deliveries", count)
+				}
 			}
 		}
 	}()
@@ -227,12 +263,18 @@ func startBackgroundWorkers(jobsService *jobs.Service, webhookService *webhooks.
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 
-		for range ticker.C {
-			count, err := emailService.ProcessPending(10)
-			if err != nil {
-				log.Printf("Error processing email notifications: %v", err)
-			} else if count > 0 {
-				log.Printf("Processed %d email notifications", count)
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("Stopping email notification worker")
+				return
+			case <-ticker.C:
+				count, err := emailService.ProcessPending(10)
+				if err != nil {
+					log.Printf("Error processing email notifications: %v", err)
+				} else if count > 0 {
+					log.Printf("Processed %d email notifications", count)
+				}
 			}
 		}
 	}()

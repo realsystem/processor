@@ -1,10 +1,15 @@
 version: '3.8'
 
+networks:
+  processor-network:
+    driver: bridge
+
 services:
   control-plane:
     build:
       context: ./control-plane
       dockerfile: Dockerfile
+    container_name: processor-control-plane
     ports:
       - "8080:8080"
     environment:
@@ -16,8 +21,11 @@ services:
       - ADMIN_EMAIL=admin@example.com
       - ADMIN_PASSWORD=admin123
       - LOG_LEVEL=info
+      - LEASE_DURATION=5m
     volumes:
       - processor-data:/data
+    networks:
+      - processor-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
@@ -26,10 +34,37 @@ services:
       retries: 3
       start_period: 10s
 
+  # Bootstrap script to register worker in database
+  worker-bootstrap:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile
+    container_name: processor-worker-bootstrap
+    command: >
+      sh -c "
+        sleep 5 &&
+        /app/server -migrate &&
+        echo 'Waiting for control-plane to be ready...' &&
+        until wget -q --spider http://control-plane:8080/api/v1/health; do sleep 1; done &&
+        echo 'Control-plane ready, registering worker...' &&
+        sqlite3 /data/processor.db \"INSERT OR IGNORE INTO workers (id, name, auth_token_hash, status, capabilities_json, version, last_seen_at, created_at, updated_at) VALUES ('worker_docker', 'docker-worker', '\$2a\$10\$dummyhash', 'active', '[\\\"noop\\\",\\\"sleep\\\",\\\"echo_metadata\\\",\\\"ollama_chat\\\"]', '1.0.0', datetime('now'), datetime('now'), datetime('now'));\" &&
+        echo 'Worker registration complete'
+      "
+    environment:
+      - DATABASE_PATH=/data/processor.db
+    volumes:
+      - processor-data:/data
+    networks:
+      - processor-network
+    depends_on:
+      - control-plane
+    restart: "no"
+
   worker:
     build:
       context: ./data-plane
       dockerfile: Dockerfile
+    container_name: processor-worker
     environment:
       - CONTROL_PLANE_URL=http://control-plane:8080
       - WORKER_TOKEN=docker-dev-worker-token
@@ -38,9 +73,36 @@ services:
       - POLL_INTERVAL=5s
       - WORKER_CAPABILITIES=noop,sleep,echo_metadata,ollama_chat
       - LOG_LEVEL=info
+    networks:
+      - processor-network
     depends_on:
-      - control-plane
+      control-plane:
+        condition: service_healthy
+      worker-bootstrap:
+        condition: service_completed_successfully
     restart: unless-stopped
+
+  # Smoke test service (runs once to verify system)
+  smoke-test:
+    image: alpine:latest
+    container_name: processor-smoke-test
+    command: >
+      sh -c "
+        apk add --no-cache curl &&
+        sleep 10 &&
+        echo 'Running smoke tests...' &&
+        curl -f http://control-plane:8080/api/v1/health &&
+        echo 'Health check passed!' &&
+        echo 'Smoke tests completed successfully'
+      "
+    networks:
+      - processor-network
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    restart: "no"
+    profiles:
+      - testing
 
 volumes:
   processor-data:

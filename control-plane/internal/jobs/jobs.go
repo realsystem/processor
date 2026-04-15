@@ -34,7 +34,7 @@ type Job struct {
 	PriorityWeight     int
 	InputMetadata      map[string]interface{}
 	ResultMetadata     map[string]interface{}
-	ErrorText          string
+	ErrorText          sql.NullString
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 	QueuedAt           sql.NullTime
@@ -58,7 +58,7 @@ type JobAttempt struct {
 	StartedAt     time.Time
 	FinishedAt    sql.NullTime
 	Status        string
-	ErrorText     string
+	ErrorText     sql.NullString
 }
 
 // Service handles job operations
@@ -369,7 +369,8 @@ func (s *Service) Fail(jobID, workerID, errorText string, shouldRetry bool) erro
 		WHERE id = ? AND worker_id = ?
 	`
 
-	result, err := tx.Exec(query, nextStatus, errorText, newAttemptCount, completedAt, time.Now(), jobID, workerID)
+	errorTextNull := sql.NullString{String: errorText, Valid: errorText != ""}
+	result, err := tx.Exec(query, nextStatus, errorTextNull, newAttemptCount, completedAt, time.Now(), jobID, workerID)
 	if err != nil {
 		return err
 	}
@@ -390,7 +391,8 @@ func (s *Service) Fail(jobID, workerID, errorText string, shouldRetry bool) erro
 		WHERE job_id = ? AND status = ?
 	`
 
-	_, err = tx.Exec(attemptQuery, StatusFailed, errorText, time.Now(), jobID, StatusRunning)
+	errorTextNullAttempt := sql.NullString{String: errorText, Valid: errorText != ""}
+	_, err = tx.Exec(attemptQuery, StatusFailed, errorTextNullAttempt, time.Now(), jobID, StatusRunning)
 	if err != nil {
 		return err
 	}
