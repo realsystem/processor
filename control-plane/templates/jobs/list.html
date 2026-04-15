@@ -1,0 +1,89 @@
+{{define "content"}}
+<div class="page-header">
+    <div class="d-flex justify-between align-items-center">
+        <div>
+            <h1 class="page-title">Jobs</h1>
+            <p class="page-subtitle">Manage and monitor your jobs</p>
+        </div>
+        <a href="/jobs/new" class="btn btn-primary">New Job</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" action="/jobs" class="d-flex gap-2">
+            <select name="status" class="form-control" style="max-width: 200px;" onchange="this.form.submit()">
+                <option value="">All Statuses</option>
+                <option value="queued" {{if eq .Filter.Status "queued"}}selected{{end}}>Queued</option>
+                <option value="leased" {{if eq .Filter.Status "leased"}}selected{{end}}>Leased</option>
+                <option value="running" {{if eq .Filter.Status "running"}}selected{{end}}>Running</option>
+                <option value="succeeded" {{if eq .Filter.Status "succeeded"}}selected{{end}}>Succeeded</option>
+                <option value="failed" {{if eq .Filter.Status "failed"}}selected{{end}}>Failed</option>
+                <option value="dead_letter" {{if eq .Filter.Status "dead_letter"}}selected{{end}}>Dead Letter</option>
+            </select>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {{if .Jobs}}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Attempts</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Jobs}}
+                    <tr>
+                        <td><code>{{truncate .ID 12}}</code></td>
+                        <td>{{.JobType}}</td>
+                        <td>{{statusBadge .Status}}</td>
+                        <td>{{.PriorityWeight}}</td>
+                        <td>{{.AttemptCount}}/{{.MaxAttempts}}</td>
+                        <td>{{formatTime .CreatedAt}}</td>
+                        <td>{{formatTime .UpdatedAt}}</td>
+                        <td class="text-right">
+                            <a href="/jobs/{{.ID}}" class="btn btn-secondary btn-sm">View</a>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
+        {{if gt .Pagination.TotalPages 1}}
+        <div class="d-flex justify-between align-items-center mt-3" style="padding-top: 1rem; border-top: 1px solid var(--color-border);">
+            <div class="text-muted text-sm">
+                Showing {{.Pagination.Start}} to {{.Pagination.End}} of {{.Pagination.Total}} jobs
+            </div>
+            <div class="d-flex gap-2">
+                {{if gt .Pagination.Page 1}}
+                <a href="?page={{sub .Pagination.Page 1}}{{if .Filter.Status}}&status={{.Filter.Status}}{{end}}" class="btn btn-secondary btn-sm">Previous</a>
+                {{end}}
+                {{if lt .Pagination.Page .Pagination.TotalPages}}
+                <a href="?page={{add .Pagination.Page 1}}{{if .Filter.Status}}&status={{.Filter.Status}}{{end}}" class="btn btn-secondary btn-sm">Next</a>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+        {{else}}
+        <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <h3 class="empty-state-title">No jobs found</h3>
+            <p class="empty-state-text">{{if .Filter.Status}}Try changing your filter or create a new job{{else}}Create your first job to get started{{end}}</p>
+            <a href="/jobs/new" class="btn btn-primary">Create Job</a>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}

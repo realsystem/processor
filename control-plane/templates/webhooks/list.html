@@ -1,0 +1,131 @@
+{{define "content"}}
+<div class="page-header">
+    <div class="d-flex justify-between align-items-center">
+        <div>
+            <h1 class="page-title">Webhooks</h1>
+            <p class="page-subtitle">Configure webhook notifications for job events</p>
+        </div>
+        <button onclick="showCreateForm()" class="btn btn-primary">Create Webhook</button>
+    </div>
+</div>
+
+<div id="create-form" style="display: none;" class="card mb-3">
+    <div class="card-header">
+        <h2 class="card-title">Create New Webhook</h2>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="/webhooks">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+            <div class="form-group">
+                <label for="target_url" class="form-label form-label-required">Target URL</label>
+                <input type="url" id="target_url" name="target_url" class="form-control" required autofocus placeholder="https://example.com/webhook">
+                <span class="form-help">The URL where webhook events will be sent</span>
+            </div>
+
+            <div class="form-group">
+                <label for="secret" class="form-label form-label-required">Secret</label>
+                <input type="text" id="secret" name="secret" class="form-control" required placeholder="Enter a secret for HMAC signing">
+                <span class="form-help">Used to sign webhook payloads for verification</span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Subscribed Events</label>
+                <div>
+                    <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem;">
+                        <input type="checkbox" name="events" value="job.succeeded" checked>
+                        <span>job.succeeded</span>
+                    </label>
+                </div>
+                <div>
+                    <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem;">
+                        <input type="checkbox" name="events" value="job.failed" checked>
+                        <span>job.failed</span>
+                    </label>
+                </div>
+                <div>
+                    <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="events" value="job.dead_letter" checked>
+                        <span>job.dead_letter</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="is_active" value="true" checked>
+                    <span>Active</span>
+                </label>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create Webhook</button>
+                <button type="button" onclick="hideCreateForm()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {{if .Webhooks}}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Target URL</th>
+                        <th>Events</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Webhooks}}
+                    <tr>
+                        <td style="font-family: var(--font-mono); font-size: 0.8125rem;">{{.TargetURL}}</td>
+                        <td>
+                            {{range .SubscribedEvents}}
+                            <span class="badge badge-info" style="margin-right: 0.25rem;">{{.}}</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if .IsActive}}
+                            <span class="badge badge-active">Active</span>
+                            {{else}}
+                            <span class="badge badge-inactive">Inactive</span>
+                            {{end}}
+                        </td>
+                        <td>{{formatTime .CreatedAt}}</td>
+                        <td class="text-right">
+                            <form method="POST" action="/webhooks/{{.ID}}/delete" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this webhook?');">
+                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="empty-state">
+            <div class="empty-state-icon">🔔</div>
+            <h3 class="empty-state-title">No webhooks configured</h3>
+            <p class="empty-state-text">Create a webhook to receive notifications about job events</p>
+            <button onclick="showCreateForm()" class="btn btn-primary">Create Webhook</button>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+function showCreateForm() {
+    document.getElementById('create-form').style.display = 'block';
+    document.getElementById('target_url').focus();
+}
+function hideCreateForm() {
+    document.getElementById('create-form').style.display = 'none';
+}
+</script>
+{{end}}

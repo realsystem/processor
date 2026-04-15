@@ -1,0 +1,71 @@
+{{define "content"}}
+<div class="page-header">
+    <h1 class="page-title">Admin Dashboard</h1>
+    <p class="page-subtitle">System overview and statistics</p>
+</div>
+
+<div class="grid grid-cols-4 mb-4">
+    <div class="stat-card">
+        <div class="stat-label">Total Users</div>
+        <div class="stat-value">{{.Stats.TotalUsers}}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Jobs</div>
+        <div class="stat-value">{{.Stats.TotalJobs}}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Active Workers</div>
+        <div class="stat-value">{{.Stats.ActiveWorkers}}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Jobs Today</div>
+        <div class="stat-value">{{.Stats.JobsToday}}</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-2">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Job Status Breakdown</h2>
+        </div>
+        <div class="card-body">
+            <dl style="display: grid; gap: 0.75rem;">
+                <div class="d-flex justify-between">
+                    <dt>Queued</dt>
+                    <dd style="margin: 0; font-weight: 600;">{{.Stats.QueuedJobs}}</dd>
+                </div>
+                <div class="d-flex justify-between">
+                    <dt>Running</dt>
+                    <dd style="margin: 0; font-weight: 600;">{{.Stats.RunningJobs}}</dd>
+                </div>
+                <div class="d-flex justify-between">
+                    <dt>Succeeded</dt>
+                    <dd style="margin: 0; font-weight: 600;">{{.Stats.SucceededJobs}}</dd>
+                </div>
+                <div class="d-flex justify-between">
+                    <dt>Failed</dt>
+                    <dd style="margin: 0; font-weight: 600;">{{.Stats.FailedJobs}}</dd>
+                </div>
+                <div class="d-flex justify-between">
+                    <dt>Dead Letter</dt>
+                    <dd style="margin: 0; font-weight: 600;">{{.Stats.DeadLetterJobs}}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Quick Links</h2>
+        </div>
+        <div class="card-body">
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <a href="/admin/jobs" class="btn btn-secondary">View All Jobs</a>
+                <a href="/admin/workers" class="btn btn-secondary">Manage Workers</a>
+                <a href="/admin/users" class="btn btn-secondary">Manage Users</a>
+                <a href="/" class="btn btn-secondary">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

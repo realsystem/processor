@@ -449,13 +449,23 @@ func (s *Service) List(userID string, status string, limit, offset int) ([]Job, 
 	// Build query
 	query := `
 		SELECT id, user_id, job_type, status, priority_weight, created_at,
-		       updated_at, started_at, completed_at, attempt_count
+		       updated_at, started_at, completed_at, attempt_count, worker_id
 		FROM jobs
-		WHERE user_id = ?
 	`
-	countQuery := "SELECT COUNT(*) FROM jobs WHERE user_id = ?"
-	args := []interface{}{userID}
-	countArgs := []interface{}{userID}
+	countQuery := "SELECT COUNT(*) FROM jobs"
+	args := []interface{}{}
+	countArgs := []interface{}{}
+
+	// Add user filter if provided (empty userID means all jobs for admin)
+	if userID != "" {
+		query += " WHERE user_id = ?"
+		countQuery += " WHERE user_id = ?"
+		args = append(args, userID)
+		countArgs = append(countArgs, userID)
+	} else {
+		query += " WHERE 1=1"
+		countQuery += " WHERE 1=1"
+	}
 
 	if status != "" {
 		query += " AND status = ?"
@@ -486,7 +496,7 @@ func (s *Service) List(userID string, status string, limit, offset int) ([]Job, 
 		var job Job
 		err := rows.Scan(
 			&job.ID, &job.UserID, &job.JobType, &job.Status, &job.PriorityWeight,
-			&job.CreatedAt, &job.UpdatedAt, &job.StartedAt, &job.CompletedAt, &job.AttemptCount,
+			&job.CreatedAt, &job.UpdatedAt, &job.StartedAt, &job.CompletedAt, &job.AttemptCount, &job.WorkerID,
 		)
 		if err != nil {
 			return nil, 0, err

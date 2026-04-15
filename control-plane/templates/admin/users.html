@@ -1,0 +1,64 @@
+{{define "content"}}
+<div class="page-header">
+    <div class="d-flex justify-between align-items-center">
+        <div>
+            <h1 class="page-title">Users</h1>
+            <p class="page-subtitle">Manage user accounts</p>
+        </div>
+        <a href="/admin" class="btn btn-secondary">Back to Admin</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {{if .Users}}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Email</th>
+                        <th>Plan</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Job Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Users}}
+                    <tr>
+                        <td><code class="text-xs">{{truncate .ID 10}}</code></td>
+                        <td style="font-weight: 500;">{{.Email}}</td>
+                        <td style="text-transform: capitalize;">{{.PlanTier}}</td>
+                        <td>
+                            {{if .IsAdmin}}
+                            <span class="badge badge-active">Admin</span>
+                            {{else}}
+                            <span class="badge badge-inactive">User</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if .DisabledAt.Valid}}
+                            <span class="badge badge-inactive">Disabled</span>
+                            {{else}}
+                            <span class="badge badge-active">Active</span>
+                            {{end}}
+                        </td>
+                        <td>{{formatTime .CreatedAt}}</td>
+                        <td>{{.JobCount}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="empty-state">
+            <div class="empty-state-icon">👥</div>
+            <h3 class="empty-state-title">No users</h3>
+            <p class="empty-state-text">No users in the system</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}

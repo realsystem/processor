@@ -1,0 +1,114 @@
+{{define "content"}}
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Welcome back, {{.User.Email}}</p>
+</div>
+
+<div class="grid grid-cols-4 mb-4">
+    <div class="stat-card">
+        <div class="stat-label">Total Jobs</div>
+        <div class="stat-value">{{.Stats.TotalJobs}}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Queued</div>
+        <div class="stat-value">{{.Stats.QueuedJobs}}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Running</div>
+        <div class="stat-value">{{.Stats.RunningJobs}}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Succeeded</div>
+        <div class="stat-value">{{.Stats.SucceededJobs}}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Recent Jobs</h2>
+        <a href="/jobs/new" class="btn btn-primary btn-sm">New Job</a>
+    </div>
+    <div class="card-body">
+        {{if .RecentJobs}}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .RecentJobs}}
+                    <tr>
+                        <td><code>{{truncate .ID 12}}</code></td>
+                        <td>{{.JobType}}</td>
+                        <td>{{statusBadge .Status}}</td>
+                        <td>{{formatTime .CreatedAt}}</td>
+                        <td>{{formatTime .UpdatedAt}}</td>
+                        <td class="text-right">
+                            <a href="/jobs/{{.ID}}" class="btn btn-secondary btn-sm">View</a>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3 text-center">
+            <a href="/jobs" class="btn btn-secondary">View All Jobs</a>
+        </div>
+        {{else}}
+        <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <h3 class="empty-state-title">No jobs yet</h3>
+            <p class="empty-state-text">Create your first job to get started</p>
+            <a href="/jobs/new" class="btn btn-primary">Create Job</a>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<div class="grid grid-cols-2 mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Quick Actions</h3>
+        </div>
+        <div class="card-body">
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <a href="/jobs/new" class="btn btn-secondary">Create New Job</a>
+                <a href="/api-keys" class="btn btn-secondary">Manage API Keys</a>
+                <a href="/webhooks" class="btn btn-secondary">Configure Webhooks</a>
+                <a href="/profile" class="btn btn-secondary">Account Settings</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Account Info</h3>
+        </div>
+        <div class="card-body">
+            <dl style="display: grid; gap: 0.75rem;">
+                <div>
+                    <dt class="text-muted text-sm">Plan</dt>
+                    <dd style="margin: 0; font-weight: 500; text-transform: capitalize;">{{.User.PlanTier}}</dd>
+                </div>
+                <div>
+                    <dt class="text-muted text-sm">Member Since</dt>
+                    <dd style="margin: 0; font-weight: 500;">{{formatTime .User.CreatedAt}}</dd>
+                </div>
+                {{if .User.IsAdmin}}
+                <div>
+                    <dt class="text-muted text-sm">Role</dt>
+                    <dd style="margin: 0;"><span class="badge badge-active">Administrator</span></dd>
+                </div>
+                {{end}}
+            </dl>
+        </div>
+    </div>
+</div>
+{{end}}

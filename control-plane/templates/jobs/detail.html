@@ -1,0 +1,152 @@
+{{define "content"}}
+<div class="page-header">
+    <div class="d-flex justify-between align-items-center">
+        <div>
+            <h1 class="page-title">Job Details</h1>
+            <p class="page-subtitle"><code>{{.Job.ID}}</code></p>
+        </div>
+        <a href="/jobs" class="btn btn-secondary">Back to Jobs</a>
+    </div>
+</div>
+
+<div class="grid grid-cols-2">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Overview</h2>
+        </div>
+        <div class="card-body">
+            <dl style="display: grid; gap: 1rem;">
+                <div>
+                    <dt class="text-muted text-sm">Status</dt>
+                    <dd style="margin: 0.25rem 0 0 0;">{{statusBadge .Job.Status}}</dd>
+                </div>
+                <div>
+                    <dt class="text-muted text-sm">Job Type</dt>
+                    <dd style="margin: 0.25rem 0 0 0; font-weight: 500;">{{.Job.JobType}}</dd>
+                </div>
+                <div>
+                    <dt class="text-muted text-sm">Priority Weight</dt>
+                    <dd style="margin: 0.25rem 0 0 0; font-weight: 500;">{{.Job.PriorityWeight}}</dd>
+                </div>
+                <div>
+                    <dt class="text-muted text-sm">Attempts</dt>
+                    <dd style="margin: 0.25rem 0 0 0; font-weight: 500;">{{.Job.AttemptCount}} / {{.Job.MaxAttempts}}</dd>
+                </div>
+                {{if .Job.WorkerID.Valid}}
+                <div>
+                    <dt class="text-muted text-sm">Worker ID</dt>
+                    <dd style="margin: 0.25rem 0 0 0;"><code>{{truncate .Job.WorkerID.String 12}}</code></dd>
+                </div>
+                {{end}}
+            </dl>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Timeline</h2>
+        </div>
+        <div class="card-body">
+            <dl style="display: grid; gap: 1rem;">
+                <div>
+                    <dt class="text-muted text-sm">Created</dt>
+                    <dd style="margin: 0.25rem 0 0 0; font-weight: 500;">{{formatTime .Job.CreatedAt}}</dd>
+                </div>
+                {{if .Job.QueuedAt.Valid}}
+                <div>
+                    <dt class="text-muted text-sm">Queued</dt>
+                    <dd style="margin: 0.25rem 0 0 0; font-weight: 500;">{{formatTime .Job.QueuedAt.Time}}</dd>
+                </div>
+                {{end}}
+                {{if .Job.LeasedAt.Valid}}
+                <div>
+                    <dt class="text-muted text-sm">Leased</dt>
+                    <dd style="margin: 0.25rem 0 0 0; font-weight: 500;">{{formatTime .Job.LeasedAt.Time}}</dd>
+                </div>
+                {{end}}
+                {{if .Job.StartedAt.Valid}}
+                <div>
+                    <dt class="text-muted text-sm">Started</dt>
+                    <dd style="margin: 0.25rem 0 0 0; font-weight: 500;">{{formatTime .Job.StartedAt.Time}}</dd>
+                </div>
+                {{end}}
+                {{if .Job.CompletedAt.Valid}}
+                <div>
+                    <dt class="text-muted text-sm">Completed</dt>
+                    <dd style="margin: 0.25rem 0 0 0; font-weight: 500;">{{formatTime .Job.CompletedAt.Time}}</dd>
+                </div>
+                {{end}}
+            </dl>
+        </div>
+    </div>
+</div>
+
+{{if .Job.InputMetadata}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Input Metadata</h3>
+    </div>
+    <div class="card-body">
+        <pre><code>{{formatJSON .Job.InputMetadata}}</code></pre>
+    </div>
+</div>
+{{end}}
+
+{{if .Job.ResultMetadata}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Result Metadata</h3>
+    </div>
+    <div class="card-body">
+        <pre><code>{{formatJSON .Job.ResultMetadata}}</code></pre>
+    </div>
+</div>
+{{end}}
+
+{{if .Job.ErrorText.Valid}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Error Details</h3>
+    </div>
+    <div class="card-body">
+        <pre style="color: var(--color-danger); margin: 0;">{{.Job.ErrorText.String}}</pre>
+    </div>
+</div>
+{{end}}
+
+{{if .Attempts}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Execution Attempts</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Worker</th>
+                        <th>Started</th>
+                        <th>Finished</th>
+                        <th>Status</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Attempts}}
+                    <tr>
+                        <td>{{.AttemptNumber}}</td>
+                        <td>{{if .WorkerID.Valid}}<code>{{truncate .WorkerID.String 12}}</code>{{else}}-{{end}}</td>
+                        <td>{{formatTime .StartedAt}}</td>
+                        <td>{{if .FinishedAt.Valid}}{{formatTime .FinishedAt.Time}}{{else}}-{{end}}</td>
+                        <td>{{statusBadge .Status}}</td>
+                        <td>{{if .ErrorText.Valid}}<span class="text-sm">{{truncate .ErrorText.String 50}}</span>{{else}}-{{end}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
+{{end}}

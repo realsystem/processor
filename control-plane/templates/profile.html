@@ -1,0 +1,69 @@
+{{define "content"}}
+<div class="page-header">
+    <h1 class="page-title">Profile & Settings</h1>
+    <p class="page-subtitle">Manage your account settings</p>
+</div>
+
+<div class="container-narrow">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Account Information</h2>
+        </div>
+        <div class="card-body">
+            <dl style="display: grid; gap: 1.5rem;">
+                <div>
+                    <dt class="text-muted text-sm">Email</dt>
+                    <dd style="margin: 0.5rem 0 0 0; font-weight: 500; font-size: 1rem;">{{.User.Email}}</dd>
+                </div>
+                <div>
+                    <dt class="text-muted text-sm">User ID</dt>
+                    <dd style="margin: 0.5rem 0 0 0;"><code>{{.User.ID}}</code></dd>
+                </div>
+                <div>
+                    <dt class="text-muted text-sm">Plan Tier</dt>
+                    <dd style="margin: 0.5rem 0 0 0; font-weight: 500; text-transform: capitalize;">{{.User.PlanTier}}</dd>
+                </div>
+                <div>
+                    <dt class="text-muted text-sm">Member Since</dt>
+                    <dd style="margin: 0.5rem 0 0 0; font-weight: 500;">{{formatTime .User.CreatedAt}}</dd>
+                </div>
+                {{if .User.IsAdmin}}
+                <div>
+                    <dt class="text-muted text-sm">Role</dt>
+                    <dd style="margin: 0.5rem 0 0 0;"><span class="badge badge-active">Administrator</span></dd>
+                </div>
+                {{end}}
+            </dl>
+        </div>
+    </div>
+
+    {{if .User.IsAdmin}}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Admin Access</h2>
+        </div>
+        <div class="card-body">
+            <p style="margin-bottom: 1rem;">You have administrator privileges. Access admin features:</p>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <a href="/admin" class="btn btn-secondary">Admin Dashboard</a>
+                <a href="/admin/jobs" class="btn btn-secondary">All Jobs</a>
+                <a href="/admin/workers" class="btn btn-secondary">Workers</a>
+                <a href="/admin/users" class="btn btn-secondary">Users</a>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Actions</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="/logout" onsubmit="return confirm('Are you sure you want to sign out?');">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <button type="submit" class="btn btn-danger">Sign Out</button>
+            </form>
+        </div>
+    </div>
+</div>
+{{end}}

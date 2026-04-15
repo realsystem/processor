@@ -18,6 +18,7 @@ import (
 	"github.com/processor/control-plane/internal/httpapi"
 	"github.com/processor/control-plane/internal/jobs"
 	"github.com/processor/control-plane/internal/middleware"
+	"github.com/processor/control-plane/internal/web"
 	"github.com/processor/control-plane/internal/webhooks"
 	"github.com/processor/control-plane/internal/workers"
 )
@@ -91,8 +92,104 @@ func main() {
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService)
 
+	// Initialize template renderer
+	templatesDir := "control-plane/templates"
+	renderer, err := web.NewTemplateRenderer(templatesDir)
+	if err != nil {
+		log.Fatalf("Failed to initialize template renderer: %v", err)
+	}
+
+	// Initialize web handlers
+	webHandlers := web.NewWebHandlers(authService, jobsService, webhookService, workerService, renderer)
+
 	// Setup router
 	mux := http.NewServeMux()
+
+	// Static files
+	fs := http.FileServer(http.Dir("control-plane/static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	// Web UI routes (public)
+	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			webHandlers.ShowLogin(w, r)
+		} else if r.Method == http.MethodPost {
+			webHandlers.Login(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			webHandlers.ShowRegister(w, r)
+		} else if r.Method == http.MethodPost {
+			webHandlers.Register(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/logout", webHandlers.Logout)
+
+	// Web UI routes (require authentication)
+	mux.Handle("/", authMiddleware.Session(http.HandlerFunc(webHandlers.Dashboard)))
+	mux.Handle("/profile", authMiddleware.Session(http.HandlerFunc(webHandlers.ShowProfile)))
+
+	// Jobs
+	mux.Handle("/jobs", authMiddleware.Session(http.HandlerFunc(webHandlers.ListJobs)))
+	mux.Handle("/jobs/new", authMiddleware.Session(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			webHandlers.ShowNewJob(w, r)
+		} else if r.Method == http.MethodPost {
+			webHandlers.CreateJob(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.Handle("/jobs/", authMiddleware.Session(http.HandlerFunc(webHandlers.ShowJob)))
+
+	// API Keys
+	mux.Handle("/api-keys", authMiddleware.Session(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			webHandlers.ListAPIKeys(w, r)
+		} else if r.Method == http.MethodPost {
+			webHandlers.CreateAPIKey(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.Handle("/api-keys/", authMiddleware.Session(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && contains(r.URL.Path, "/revoke") {
+			webHandlers.RevokeAPIKey(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	// Webhooks
+	mux.Handle("/webhooks", authMiddleware.Session(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			webHandlers.ListWebhooks(w, r)
+		} else if r.Method == http.MethodPost {
+			webHandlers.CreateWebhook(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.Handle("/webhooks/", authMiddleware.Session(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && contains(r.URL.Path, "/delete") {
+			webHandlers.DeleteWebhook(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	// Admin routes
+	mux.Handle("/admin", authMiddleware.Session(http.HandlerFunc(webHandlers.AdminDashboard)))
+	mux.Handle("/admin/jobs", authMiddleware.Session(http.HandlerFunc(webHandlers.AdminJobs)))
+	mux.Handle("/admin/workers", authMiddleware.Session(http.HandlerFunc(webHandlers.AdminWorkers)))
+	mux.Handle("/admin/users", authMiddleware.Session(http.HandlerFunc(webHandlers.AdminUsers)))
 
 	// Health endpoint (no auth)
 	mux.HandleFunc("/api/v1/health", api.Health)

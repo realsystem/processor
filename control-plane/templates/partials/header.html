@@ -1,0 +1,33 @@
+{{define "header"}}
+<header class="site-header">
+    <div class="container">
+        <a href="/" class="site-logo">
+            <span>⚡</span>
+            <span>Processor</span>
+        </a>
+
+        {{if .User}}
+        <nav class="site-nav">
+            <a href="/" {{if eq .ActivePage "dashboard"}}class="active"{{end}}>Dashboard</a>
+            <a href="/jobs" {{if eq .ActivePage "jobs"}}class="active"{{end}}>Jobs</a>
+            <a href="/api-keys" {{if eq .ActivePage "api-keys"}}class="active"{{end}}>API Keys</a>
+            <a href="/webhooks" {{if eq .ActivePage "webhooks"}}class="active"{{end}}>Webhooks</a>
+
+            {{if .User.IsAdmin}}
+            <a href="/admin" {{if eq .ActivePage "admin"}}class="active"{{end}}>Admin</a>
+            {{end}}
+
+            <div class="user-menu">
+                <a href="/profile" {{if eq .ActivePage "profile"}}class="active"{{end}}>{{.User.Email}}</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </nav>
+        {{else}}
+        <nav class="site-nav">
+            <a href="/login">Login</a>
+            <a href="/register">Register</a>
+        </nav>
+        {{end}}
+    </div>
+</header>
+{{end}}
