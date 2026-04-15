@@ -13,14 +13,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build binary with static linking
-RUN CGO_ENABLED=1 GOOS=linux go build -a -ldflags '-linkmode external -extldflags "-static"' -o server ./cmd/server
+# Build binary with dynamic linking to properly support TLS certificate verification
+RUN CGO_ENABLED=1 GOOS=linux go build -o server ./cmd/server
 
 # Runtime stage
 FROM alpine:latest
 
-# Install runtime dependencies
-RUN apk --no-cache add ca-certificates sqlite wget && \
+# Install runtime dependencies (including libc for dynamic linking)
+RUN apk --no-cache add ca-certificates sqlite wget libc6-compat && \
     addgroup -g 1000 processor && \
     adduser -D -u 1000 -G processor processor && \
     mkdir -p /data && \

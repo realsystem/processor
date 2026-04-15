@@ -11,15 +11,21 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_PATH=/data/processor.db
-      - SESSION_SECRET=docker-dev-session-secret-change-in-production
-      - WORKER_TOKEN=docker-dev-worker-token
-      - HTTP_PORT=8080
-      - ENV=development
-      - ADMIN_EMAIL=admin@example.com
-      - ADMIN_PASSWORD=admin123
-      - LOG_LEVEL=info
-      - LEASE_DURATION=5m
+      - DATABASE_PATH=${DATABASE_PATH:-/data/processor.db}
+      - SESSION_SECRET=${SESSION_SECRET:-docker-dev-session-secret}
+      - WORKER_TOKEN=${WORKER_TOKEN:-docker-dev-worker-token}
+      - HTTP_PORT=${HTTP_PORT:-8080}
+      - ENV=${ENV:-development}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LEASE_DURATION=${LEASE_DURATION:-5m}
+      # SMTP Configuration (loaded from .env file)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
     volumes:
       - processor-data:/data
     networks:
@@ -49,7 +55,7 @@ services:
         echo 'Bootstrap complete - worker will register on first connection'
       "
     environment:
-      - DATABASE_PATH=/data/processor.db
+      - DATABASE_PATH=${DATABASE_PATH:-/data/processor.db}
     volumes:
       - processor-data:/data
     networks:
@@ -65,12 +71,12 @@ services:
     container_name: processor-worker
     environment:
       - CONTROL_PLANE_URL=http://control-plane:8080
-      - WORKER_TOKEN=docker-dev-worker-token
+      - WORKER_TOKEN=${WORKER_TOKEN:-docker-dev-worker-token}
       - WORKER_ID=worker_docker
       - WORKER_NAME=docker-worker
       - POLL_INTERVAL=5s
       - WORKER_CAPABILITIES=noop,sleep,echo_metadata,ollama_chat
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     networks:
       - processor-network
     depends_on:

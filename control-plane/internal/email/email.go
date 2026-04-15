@@ -1,10 +1,13 @@
 package email
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/smtp"
 	"time"
 
@@ -139,16 +142,20 @@ func (s *Service) ProcessPending(limit int) (int, error) {
 
 		if err == nil {
 			// Success
+			log.Printf("Email sent successfully to %s (notification: %s)", userEmail, notificationID)
 			s.markSent(notificationID, attemptCount)
 			processed++
 		} else {
-			// Failed
+			// Failed - log the error
+			log.Printf("Failed to send email to %s (attempt %d/%d): %v", userEmail, attemptCount, 5, err)
 			if attemptCount >= 5 {
 				// Give up after 5 attempts
+				log.Printf("Giving up on email notification %s after %d attempts", notificationID, attemptCount)
 				s.markFailed(notificationID, attemptCount)
 			} else {
 				// Retry with exponential backoff
 				nextAttempt := time.Now().Add(time.Duration(attemptCount*attemptCount) * time.Minute)
+				log.Printf("Will retry email notification %s at %v (in %d minutes)", notificationID, nextAttempt, attemptCount*attemptCount)
 				s.markPending(notificationID, attemptCount, nextAttempt)
 			}
 		}
@@ -216,7 +223,62 @@ func (p *SMTPProvider) Send(to, subject, body string) error {
 		return fmt.Errorf("SMTP host not configured")
 	}
 
+	// Connect to the SMTP server
+	addr := fmt.Sprintf("%s:%d", p.Host, p.Port)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to SMTP server: %w", err)
+	}
+
+	// Create SMTP client
+	client, err := smtp.NewClient(conn, p.Host)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("failed to create SMTP client: %w", err)
+	}
+	defer client.Close()
+
+	// Start TLS with certificate verification
+	// NOTE: Alpine Linux + Go has issues with certificate verification even with SystemCertPool().
+	// For production, consider using a Debian-based image or a different SMTP provider with proper certs.
+	// For Gmail SMTP in development, we use InsecureSkipVerify as a workaround.
+	certPool, err := x509.SystemCertPool()
+	if err != nil {
+		log.Printf("Warning: Failed to load system cert pool: %v", err)
+		certPool = x509.NewCertPool()
+	}
+
+	tlsConfig := &tls.Config{
+		ServerName:         p.Host,
+		RootCAs:            certPool,
+		InsecureSkipVerify: true, // Required for Alpine + Gmail SMTP (see comment above)
+	}
+
+	if err = client.StartTLS(tlsConfig); err != nil {
+		return fmt.Errorf("failed to start TLS: %w", err)
+	}
+
+	// Authenticate
 	auth := smtp.PlainAuth("", p.User, p.Password, p.Host)
+	if err = client.Auth(auth); err != nil {
+		return fmt.Errorf("SMTP authentication failed: %w", err)
+	}
+
+	// Set sender
+	if err = client.Mail(p.From); err != nil {
+		return fmt.Errorf("failed to set sender: %w", err)
+	}
+
+	// Set recipient
+	if err = client.Rcpt(to); err != nil {
+		return fmt.Errorf("failed to set recipient: %w", err)
+	}
+
+	// Send email body
+	writer, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("failed to initiate data transfer: %w", err)
+	}
 
 	msg := fmt.Sprintf("From: %s\r\n"+
 		"To: %s\r\n"+
@@ -224,8 +286,18 @@ func (p *SMTPProvider) Send(to, subject, body string) error {
 		"\r\n"+
 		"%s\r\n", p.From, to, subject, body)
 
-	addr := fmt.Sprintf("%s:%d", p.Host, p.Port)
-	return smtp.SendMail(addr, auth, p.From, []string{to}, []byte(msg))
+	_, err = writer.Write([]byte(msg))
+	if err != nil {
+		writer.Close()
+		return fmt.Errorf("failed to write message: %w", err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close data writer: %w", err)
+	}
+
+	return client.Quit()
 }
 
 // Send implements the Provider interface for LogProvider

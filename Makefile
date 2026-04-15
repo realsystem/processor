@@ -1,7 +1,7 @@
 .PHONY: help build test clean dev lint control-plane data-plane \
-        dev-up dev-down dev-logs dev-restart dev-status \
+        dev-up dev-down dev-logs dev-restart dev-status dev-clean dev-reset \
         smoke-test integration-test test-all \
-        migrate seed-dev
+        migrate seed-dev create-user
 
 help:
 	@echo "Processor Monorepo - Available Commands"
@@ -21,6 +21,8 @@ help:
 	@echo "Local Development (Docker):"
 	@echo "  make dev-up         - Start all services in Docker"
 	@echo "  make dev-down       - Stop and remove all Docker containers"
+	@echo "  make dev-clean      - Stop and remove containers + volumes (clean slate)"
+	@echo "  make dev-reset      - Full reset: clean, rebuild, and start fresh"
 	@echo "  make dev-logs       - Tail logs from all services"
 	@echo "  make dev-restart    - Restart all Docker services"
 	@echo "  make dev-status     - Show status of Docker services"
@@ -28,6 +30,9 @@ help:
 	@echo "Database:"
 	@echo "  make migrate        - Run database migrations"
 	@echo "  make seed-dev       - Seed database with dev data"
+	@echo ""
+	@echo "User Management:"
+	@echo "  make create-user    - Create a new user (interactive)"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean          - Clean build artifacts and Docker volumes"
@@ -109,6 +114,33 @@ dev-status:
 	@echo ""
 	docker-compose ps
 
+dev-clean:
+	@echo "Cleaning Docker environment (removing volumes)..."
+	docker-compose down -v
+	@echo "✅ Cleaned! Volumes removed."
+
+dev-reset:
+	@echo "Resetting Docker environment (clean slate)..."
+	docker-compose down -v
+	@echo "Rebuilding images..."
+	docker-compose build control-plane
+	@echo "Starting services..."
+	docker-compose up -d control-plane worker-bootstrap worker
+	@echo ""
+	@echo "Waiting for services to be healthy..."
+	@sleep 5
+	@echo "Restarting control-plane to create admin user..."
+	docker-compose restart control-plane
+	@sleep 3
+	@echo ""
+	@echo "✅ Reset complete!"
+	@echo ""
+	@echo "Control Plane: http://localhost:8080"
+	@echo "Login:         admin@example.com / admin123"
+	@echo ""
+	@echo "View logs:     make dev-logs"
+	@echo "Check status:  make dev-status"
+
 # Database operations
 migrate:
 	@echo "Running database migrations..."
@@ -122,6 +154,20 @@ seed-dev:
 		echo "Creating admin user..."; \
 		cd control-plane && go run scripts/create-admin.go; \
 	fi
+
+create-user:
+	@echo "Create New User"
+	@echo "==============="
+	@echo ""
+	@read -p "Email: " email; \
+	read -sp "Password: " password; \
+	echo ""; \
+	read -p "Admin? (y/N): " admin; \
+	is_admin=0; \
+	if [ "$$admin" = "y" ] || [ "$$admin" = "Y" ]; then \
+		is_admin=1; \
+	fi; \
+	bash scripts/create-user.sh "$$email" "$$password" "$$is_admin"
 
 # Clean
 clean:

@@ -1,32 +1,47 @@
-{{define "content"}}
-<div class="auth-container">
-    <div class="auth-card">
-        <div class="auth-header">
-            <h1 class="auth-title">Sign In</h1>
-            <p class="auth-subtitle">Welcome back to Processor Control Plane</p>
-        </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .Title}}{{.Title}} - {{end}}Processor Control Plane</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    {{template "flash" .}}
 
-        <form method="POST" action="/login">
-            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <main class="main-content">
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <h1 class="auth-title">Sign In</h1>
+                    <p class="auth-subtitle">Welcome back to Processor Control Plane</p>
+                </div>
 
-            <div class="form-group">
-                <label for="email" class="form-label form-label-required">Email</label>
-                <input type="email" id="email" name="email" class="form-control" required autofocus value="{{.Email}}">
-                {{if .Errors.Email}}<span class="form-error">{{.Errors.Email}}</span>{{end}}
+                <form method="POST" action="/login">
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+                    <div class="form-group">
+                        <label for="email" class="form-label form-label-required">Email</label>
+                        <input type="email" id="email" name="email" class="form-control" required autofocus value="{{.Email}}">
+                        {{if .Errors.Email}}<span class="form-error">{{.Errors.Email}}</span>{{end}}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="form-label form-label-required">Password</label>
+                        <input type="password" id="password" name="password" class="form-control" required>
+                        {{if .Errors.Password}}<span class="form-error">{{.Errors.Password}}</span>{{end}}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">Sign In</button>
+                </form>
+
+                <div class="auth-footer">
+                    <p>Don't have an account? <a href="/register" class="auth-link">Sign up</a></p>
+                </div>
             </div>
-
-            <div class="form-group">
-                <label for="password" class="form-label form-label-required">Password</label>
-                <input type="password" id="password" name="password" class="form-control" required>
-                {{if .Errors.Password}}<span class="form-error">{{.Errors.Password}}</span>{{end}}
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-lg btn-block">Sign In</button>
-        </form>
-
-        <div class="auth-footer">
-            <p>Don't have an account? <a href="/register" class="auth-link">Sign up</a></p>
         </div>
-    </div>
-</div>
-{{end}}
+    </main>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

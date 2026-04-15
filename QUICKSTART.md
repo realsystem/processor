@@ -409,18 +409,52 @@ curl -H "Authorization: Bearer $API_KEY" \
 
 ## Option 2: Docker Compose (Easiest)
 
+### Initial Setup
+
+First, configure your environment variables:
+
 ```bash
 # From the repository root
-docker-compose up -d
+# Copy the example environment file
+cp .env.example .env
+
+# Edit .env to add your SMTP credentials (optional)
+# The file is gitignored - safe to store secrets
+nano .env
+```
+
+### Start Services
+
+```bash
+# Start all services
+make dev-up
 
 # Check logs
-docker-compose logs -f
+make dev-logs
 
-# Stop
-docker-compose down
+# Stop services (keeps data)
+make dev-down
+
+# Reset everything (deletes data)
+make dev-reset
+```
+
+Or use docker-compose directly:
+
+```bash
+docker-compose up -d       # Start
+docker-compose logs -f     # View logs
+docker-compose down        # Stop (keeps data)
+docker-compose down -v     # Stop and delete data
 ```
 
 This will start both the control plane and worker in containers.
+
+**Default credentials:**
+- Email: `admin@example.com`
+- Password: `admin123`
+
+**Note:** `.env` file is gitignored and contains secrets. Never commit it to version control.
 
 ## Next Steps
 

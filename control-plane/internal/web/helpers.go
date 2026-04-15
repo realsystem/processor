@@ -16,7 +16,8 @@ import (
 
 // TemplateRenderer handles template rendering
 type TemplateRenderer struct {
-	templates *template.Template
+	templatesDir string
+	funcMap      template.FuncMap
 }
 
 // NewTemplateRenderer creates a new template renderer
@@ -33,25 +34,9 @@ func NewTemplateRenderer(templatesDir string) (*TemplateRenderer, error) {
 		"lt":           lt,
 	}
 
-	// Parse all templates
-	templates, err := template.New("").Funcs(funcMap).ParseGlob(filepath.Join(templatesDir, "*.html"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse base templates: %w", err)
-	}
-
-	// Parse subdirectories
-	subdirs := []string{"jobs", "api-keys", "webhooks", "admin", "partials"}
-	for _, subdir := range subdirs {
-		pattern := filepath.Join(templatesDir, subdir, "*.html")
-		templates, err = templates.ParseGlob(pattern)
-		if err != nil {
-			// Continue if subdir doesn't exist or has no templates
-			continue
-		}
-	}
-
 	return &TemplateRenderer{
-		templates: templates,
+		templatesDir: templatesDir,
+		funcMap:      funcMap,
 	}, nil
 }
 
@@ -78,13 +63,78 @@ func (tr *TemplateRenderer) Render(w http.ResponseWriter, r *http.Request, templ
 	// Add CSRF token
 	data["CSRFToken"] = GenerateCSRF(w, r)
 
+	// Add active page for navigation
+	data["ActivePage"] = getPageNameFromTemplate(templateName)
+
 	// Set content type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Render template
-	if err := tr.templates.ExecuteTemplate(w, "base.html", data); err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	var err error
+	var tmpl *template.Template
+
+	// List of standalone templates (not using base.html layout)
+	standaloneTemplates := map[string]bool{
+		"login.html":     true,
+		"register.html":  true,
+		"dashboard.html": true,
+	}
+
+	if standaloneTemplates[templateName] {
+		// Standalone templates - parse with partials
+		tmpl, err = template.New(templateName).Funcs(tr.funcMap).ParseFiles(
+			filepath.Join(tr.templatesDir, templateName),
+			filepath.Join(tr.templatesDir, "partials", "header.html"),
+			filepath.Join(tr.templatesDir, "partials", "flash.html"),
+		)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Template parse error: %v", err), http.StatusInternalServerError)
+			return
+		}
+		err = tmpl.Execute(w, data)
+	} else {
+		// Layout-based templates - parse base + partials + specific content
+		templatePath := filepath.Join(tr.templatesDir, templateName)
+
+		files := []string{
+			filepath.Join(tr.templatesDir, "base.html"),
+			filepath.Join(tr.templatesDir, "partials", "header.html"),
+			filepath.Join(tr.templatesDir, "partials", "flash.html"),
+			templatePath,
+		}
+
+		tmpl, err = template.New("base.html").Funcs(tr.funcMap).ParseFiles(files...)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Template parse error for %s: %v", templateName, err), http.StatusInternalServerError)
+			return
+		}
+		err = tmpl.Execute(w, data)
+	}
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Template execution error: %v", err), http.StatusInternalServerError)
 		return
+	}
+}
+
+func getPageNameFromTemplate(templateName string) string {
+	switch templateName {
+	case "dashboard.html":
+		return "dashboard"
+	case "jobs/list.html":
+		return "jobs"
+	case "jobs/new.html", "jobs/detail.html":
+		return "jobs"
+	case "api-keys/list.html":
+		return "api-keys"
+	case "webhooks/list.html":
+		return "webhooks"
+	case "profile.html":
+		return "profile"
+	case "admin/dashboard.html", "admin/jobs.html", "admin/workers.html", "admin/users.html":
+		return "admin"
+	default:
+		return ""
 	}
 }
 

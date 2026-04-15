@@ -66,7 +66,14 @@ func Migrate(db *sql.DB) error {
 			return fmt.Errorf("failed to read migration %s: %w", filename, err)
 		}
 
+		// Execute migration - ignore "already exists" errors since migrations should be idempotent
 		if _, err := db.Exec(string(content)); err != nil {
+			// Check if error is about something already existing (idempotent migrations)
+			errStr := strings.ToLower(err.Error())
+			if strings.Contains(errStr, "already exists") {
+				log.Printf("Migration %s: skipping (already applied)", filename)
+				continue
+			}
 			return fmt.Errorf("failed to apply migration %s: %w", filename, err)
 		}
 	}

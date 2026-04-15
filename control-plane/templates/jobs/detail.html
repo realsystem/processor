@@ -149,4 +149,19 @@
     </div>
 </div>
 {{end}}
+
+<script>
+(function() {
+    // Auto-refresh for jobs that are still processing
+    const jobStatus = '{{.Job.Status}}';
+    const terminalStates = ['succeeded', 'failed', 'canceled', 'dead_letter'];
+
+    if (!terminalStates.includes(jobStatus)) {
+        // Refresh every 3 seconds while job is processing
+        setTimeout(function() {
+            window.location.reload();
+        }, 3000);
+    }
+})();
+</script>
 {{end}}

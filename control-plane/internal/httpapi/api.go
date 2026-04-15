@@ -445,6 +445,12 @@ func (api *API) WorkerPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-register worker if it doesn't exist
+	if err := api.workerService.EnsureWorker(req.WorkerID, req.Capabilities); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to register worker")
+		return
+	}
+
 	api.workerService.UpdateLastSeen(req.WorkerID)
 
 	job, err := api.jobsService.Poll(req.WorkerID, req.Capabilities)

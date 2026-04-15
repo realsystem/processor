@@ -1,39 +1,54 @@
-{{define "content"}}
-<div class="auth-container">
-    <div class="auth-card">
-        <div class="auth-header">
-            <h1 class="auth-title">Create Account</h1>
-            <p class="auth-subtitle">Start using Processor Control Plane</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .Title}}{{.Title}} - {{end}}Processor Control Plane</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    {{template "flash" .}}
+
+    <main class="main-content">
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <h1 class="auth-title">Create Account</h1>
+                    <p class="auth-subtitle">Start using Processor Control Plane</p>
+                </div>
+
+                <form method="POST" action="/register">
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+                    <div class="form-group">
+                        <label for="email" class="form-label form-label-required">Email</label>
+                        <input type="email" id="email" name="email" class="form-control" required autofocus value="{{.Email}}">
+                        {{if .Errors.Email}}<span class="form-error">{{.Errors.Email}}</span>{{end}}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="form-label form-label-required">Password</label>
+                        <input type="password" id="password" name="password" class="form-control" required minlength="8">
+                        <span class="form-help">Minimum 8 characters</span>
+                        {{if .Errors.Password}}<span class="form-error">{{.Errors.Password}}</span>{{end}}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password_confirm" class="form-label form-label-required">Confirm Password</label>
+                        <input type="password" id="password_confirm" name="password_confirm" class="form-control" required minlength="8">
+                        {{if .Errors.PasswordConfirm}}<span class="form-error">{{.Errors.PasswordConfirm}}</span>{{end}}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">Create Account</button>
+                </form>
+
+                <div class="auth-footer">
+                    <p>Already have an account? <a href="/login" class="auth-link">Sign in</a></p>
+                </div>
+            </div>
         </div>
+    </main>
 
-        <form method="POST" action="/register">
-            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-
-            <div class="form-group">
-                <label for="email" class="form-label form-label-required">Email</label>
-                <input type="email" id="email" name="email" class="form-control" required autofocus value="{{.Email}}">
-                {{if .Errors.Email}}<span class="form-error">{{.Errors.Email}}</span>{{end}}
-            </div>
-
-            <div class="form-group">
-                <label for="password" class="form-label form-label-required">Password</label>
-                <input type="password" id="password" name="password" class="form-control" required minlength="8">
-                <span class="form-help">Minimum 8 characters</span>
-                {{if .Errors.Password}}<span class="form-error">{{.Errors.Password}}</span>{{end}}
-            </div>
-
-            <div class="form-group">
-                <label for="password_confirm" class="form-label form-label-required">Confirm Password</label>
-                <input type="password" id="password_confirm" name="password_confirm" class="form-control" required minlength="8">
-                {{if .Errors.PasswordConfirm}}<span class="form-error">{{.Errors.PasswordConfirm}}</span>{{end}}
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-lg btn-block">Create Account</button>
-        </form>
-
-        <div class="auth-footer">
-            <p>Already have an account? <a href="/login" class="auth-link">Sign in</a></p>
-        </div>
-    </div>
-</div>
-{{end}}
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

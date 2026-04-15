@@ -97,6 +97,47 @@ func (s *Service) UpdateCurrentJob(workerID string, jobID sql.NullString) error 
 	return err
 }
 
+// EnsureWorker creates a worker if it doesn't exist
+func (s *Service) EnsureWorker(workerID string, capabilities []string) error {
+	// Check if worker exists
+	var count int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM workers WHERE id = ?`, workerID).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		// Worker exists, update capabilities
+		capJSON, _ := json.Marshal(capabilities)
+		_, err = s.db.Exec(`UPDATE workers SET capabilities_json = ?, updated_at = ? WHERE id = ?`,
+			string(capJSON), time.Now(), workerID)
+		return err
+	}
+
+	// Worker doesn't exist, create it
+	capJSON, err := json.Marshal(capabilities)
+	if err != nil {
+		return err
+	}
+
+	query := `
+		INSERT INTO workers (id, name, auth_token_hash, status, capabilities_json, version, last_seen_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err = s.db.Exec(query,
+		workerID,
+		workerID, // Use ID as name for auto-registered workers
+		"",       // No token hash for auto-registered workers
+		"active",
+		string(capJSON),
+		"auto-registered",
+		time.Now(),
+		time.Now(),
+		time.Now(),
+	)
+	return err
+}
+
 // Register registers a new worker or updates existing
 func (s *Service) Register(name, token string, capabilities []string, version string) (*Worker, error) {
 	tokenHash, err := bcrypt.GenerateFromPassword([]byte(token), 10)
