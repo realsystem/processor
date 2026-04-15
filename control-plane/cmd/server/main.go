@@ -93,7 +93,11 @@ func main() {
 	authMiddleware := middleware.NewAuthMiddleware(authService)
 
 	// Initialize template renderer
-	templatesDir := "control-plane/templates"
+	// Try Docker path first, then local development path
+	templatesDir := "templates"
+	if _, err := os.Stat(templatesDir); os.IsNotExist(err) {
+		templatesDir = "control-plane/templates"
+	}
 	renderer, err := web.NewTemplateRenderer(templatesDir)
 	if err != nil {
 		log.Fatalf("Failed to initialize template renderer: %v", err)
@@ -106,7 +110,12 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Static files
-	fs := http.FileServer(http.Dir("control-plane/static"))
+	// Try Docker path first, then local development path
+	staticDir := "static"
+	if _, err := os.Stat(staticDir); os.IsNotExist(err) {
+		staticDir = "control-plane/static"
+	}
+	fs := http.FileServer(http.Dir(staticDir))
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Web UI routes (public)

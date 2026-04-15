@@ -31,6 +31,10 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/server .
 
+# Copy templates and static files
+COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/static ./static
+
 # Run as non-root user
 USER processor
 
