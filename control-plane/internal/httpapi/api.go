@@ -662,8 +662,8 @@ func (api *API) sendNotifications(jobID, eventType string) {
 			"job_type": job.JobType,
 			"status":   job.Status,
 		}
-		if job.ErrorText != "" {
-			payload["error"] = job.ErrorText
+		if job.ErrorText.Valid && job.ErrorText.String != "" {
+			payload["error"] = job.ErrorText.String
 		}
 
 		api.emailService.Queue(job.UserID, sql.NullString{String: job.ID, Valid: true}, templateName, payload)
@@ -697,7 +697,7 @@ func formatJob(job *jobs.Job) map[string]interface{} {
 		"priority_weight":   job.PriorityWeight,
 		"input_metadata":    job.InputMetadata,
 		"result_metadata":   job.ResultMetadata,
-		"error_text":        job.ErrorText,
+		"error_text":        formatNullString(job.ErrorText),
 		"created_at":        job.CreatedAt.Format(time.RFC3339),
 		"updated_at":        job.UpdatedAt.Format(time.RFC3339),
 		"queued_at":         formatNullTime(job.QueuedAt),
