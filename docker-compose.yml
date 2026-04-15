@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  control-plane:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_PATH=/data/processor.db
+      - SESSION_SECRET=docker-dev-session-secret-change-in-production
+      - WORKER_TOKEN=docker-dev-worker-token
+      - HTTP_PORT=8080
+      - ENV=development
+      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_PASSWORD=admin123
+      - LOG_LEVEL=info
+    volumes:
+      - processor-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build:
+      context: ./data-plane
+      dockerfile: Dockerfile
+    environment:
+      - CONTROL_PLANE_URL=http://control-plane:8080
+      - WORKER_TOKEN=docker-dev-worker-token
+      - WORKER_ID=worker_docker
+      - WORKER_NAME=docker-worker
+      - POLL_INTERVAL=5s
+      - WORKER_CAPABILITIES=noop,sleep,echo_metadata,ollama_chat
+      - LOG_LEVEL=info
+    depends_on:
+      - control-plane
+    restart: unless-stopped
+
+volumes:
+  processor-data:

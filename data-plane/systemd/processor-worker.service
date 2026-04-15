@@ -1,0 +1,18 @@
+[Unit]
+Description=Processor Data Plane Worker
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=%h/processor-worker
+EnvironmentFile=%h/processor-worker/.env
+ExecStart=/usr/local/bin/processor-worker
+Restart=always
+RestartSec=10
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
