@@ -35,6 +35,9 @@ COPY --from=builder /app/server .
 COPY --from=builder /app/templates ./templates
 COPY --from=builder /app/static ./static
 
+# Set ownership for processor user
+RUN chown -R processor:processor /app
+
 # Run as non-root user
 USER processor
 
