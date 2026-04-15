@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   processor-network:
     driver: bridge
@@ -34,7 +32,8 @@ services:
       retries: 3
       start_period: 10s
 
-  # Bootstrap script to register worker in database
+  # Bootstrap: run migrations and wait for control-plane
+  # Note: Worker registration happens automatically via control-plane/internal/workers/workers.go
   worker-bootstrap:
     build:
       context: ./control-plane
@@ -42,13 +41,12 @@ services:
     container_name: processor-worker-bootstrap
     command: >
       sh -c "
-        sleep 5 &&
+        echo 'Running database migrations...' &&
         /app/server -migrate &&
         echo 'Waiting for control-plane to be ready...' &&
-        until wget -q --spider http://control-plane:8080/api/v1/health; do sleep 1; done &&
-        echo 'Control-plane ready, registering worker...' &&
-        sqlite3 /data/processor.db \"INSERT OR IGNORE INTO workers (id, name, auth_token_hash, status, capabilities_json, version, last_seen_at, created_at, updated_at) VALUES ('worker_docker', 'docker-worker', '\$2a\$10\$dummyhash', 'active', '[\\\"noop\\\",\\\"sleep\\\",\\\"echo_metadata\\\",\\\"ollama_chat\\\"]', '1.0.0', datetime('now'), datetime('now'), datetime('now'));\" &&
-        echo 'Worker registration complete'
+        until wget -q --spider http://control-plane:8080/api/v1/health 2>/dev/null; do sleep 1; done &&
+        echo 'Control-plane is healthy!' &&
+        echo 'Bootstrap complete - worker will register on first connection'
       "
     environment:
       - DATABASE_PATH=/data/processor.db

@@ -1,0 +1,14 @@
+# 1. Start Docker environment
+make dev-up
+
+# 2. Run smoke tests
+bash tests/smoke_test.sh
+
+# 3. Run integration tests
+bash tests/integration_test.sh
+
+# 4. View logs
+make dev-logs
+
+# 5. Stop environment
+make dev-down
