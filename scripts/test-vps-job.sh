@@ -54,12 +54,23 @@ case "$JOB_TYPE" in
         ;;
 
     ollama)
-        echo "Submitting Ollama job..."
+        echo "Submitting Ollama job (using plain text format)..."
         JOB_PAYLOAD='{
             "job_type": "ollama_chat",
             "input_metadata": {
-                "model": "llama3.2",
-                "prompt": "Write a haiku about cloud computing."
+                "text": "Write a haiku about cloud computing."
+            },
+            "priority_weight": 10
+        }'
+        ;;
+
+    ollama-structured)
+        echo "Submitting Ollama job (using structured format)..."
+        JOB_PAYLOAD='{
+            "job_type": "ollama_chat",
+            "input_metadata": {
+                "prompt": "Explain Docker in one sentence.",
+                "model": "llama3.2"
             },
             "priority_weight": 10
         }'
@@ -77,13 +88,14 @@ case "$JOB_TYPE" in
     *)
         echo "Unknown job type: $JOB_TYPE"
         echo ""
-        echo "Usage: $0 [echo|sleep|ollama|noop]"
+        echo "Usage: $0 [echo|sleep|ollama|ollama-structured|noop]"
         echo ""
         echo "Examples:"
-        echo "  $0 echo     # Submit echo job"
-        echo "  $0 sleep    # Submit sleep job"
-        echo "  $0 ollama   # Submit Ollama LLM job"
-        echo "  $0 noop     # Submit no-op job"
+        echo "  $0 echo               # Submit echo job"
+        echo "  $0 sleep              # Submit sleep job"
+        echo "  $0 ollama             # Submit Ollama LLM job (plain text)"
+        echo "  $0 ollama-structured  # Submit Ollama LLM job (structured)"
+        echo "  $0 noop               # Submit no-op job"
         exit 1
         ;;
 esac

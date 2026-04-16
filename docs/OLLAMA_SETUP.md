@@ -256,35 +256,54 @@ curl -H "Authorization: Bearer $API_KEY" \
 
 ## Example Jobs
 
-### Simple Question
+The executor supports multiple input formats for convenience:
+
+### Structured Format (Recommended)
 ```json
 {
   "job_type": "ollama_chat",
   "input_metadata": {
-    "model": "llama3.2",
-    "prompt": "What is the capital of France?"
+    "prompt": "What is the capital of France?",
+    "model": "llama3.2"
   }
 }
 ```
+
+### Plain Text Format (Simple)
+```json
+{
+  "job_type": "ollama_chat",
+  "input_metadata": {
+    "text": "What is the capital of France?"
+  }
+}
+```
+
+### Alternative Formats
+Any of these work:
+- `{"prompt": "..."}` - Structured (recommended)
+- `{"text": "..."}` - Plain text
+- `{"message": "..."}` - Message format
+- `{"input": "..."}` - Input format
 
 ### Code Generation
 ```json
 {
   "job_type": "ollama_chat",
   "input_metadata": {
-    "model": "codellama",
-    "prompt": "Write a Python function to calculate fibonacci numbers."
+    "text": "Write a Python function to calculate fibonacci numbers.",
+    "model": "codellama"
   }
 }
 ```
 
-### Longer Analysis
+### Complex Analysis
 ```json
 {
   "job_type": "ollama_chat",
   "input_metadata": {
-    "model": "llama3.1:8b",
-    "prompt": "Analyze the pros and cons of microservices architecture."
+    "message": "Analyze the pros and cons of microservices architecture.",
+    "model": "llama3.1:8b"
   }
 }
 ```

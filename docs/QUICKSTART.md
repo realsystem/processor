@@ -495,17 +495,31 @@ This will start both the control plane and worker in containers.
 ```
 
 ### Ollama Job (requires Ollama running locally)
+
+Simple format:
 ```json
 {
   "job_type": "ollama_chat",
   "input_metadata": {
-    "model": "llama3.2",
-    "prompt": "What is the meaning of life?"
+    "text": "What is the meaning of life?"
+  }
+}
+```
+
+Structured format (with model selection):
+```json
+{
+  "job_type": "ollama_chat",
+  "input_metadata": {
+    "prompt": "Explain quantum computing.",
+    "model": "llama3.2"
   }
 }
 ```
 
 **Note:** This requires Ollama to be installed and running. See [docs/OLLAMA_SETUP.md](OLLAMA_SETUP.md) for setup instructions.
+
+**Input formats supported:** `text`, `prompt`, `message`, or `input` - all work the same way!
 
 ## Troubleshooting
 

@@ -12,3 +12,17 @@ make dev-logs
 
 # 5. Stop environment
 make dev-down
+
+make create-api-key-docker
+
+export API_KEY="pk_YOUR_KEY_HERE"
+
+make ollama-setup
+
+make ollama-test
+
+make dev-reset
+
+./scripts/deploy-vps-complete.sh
+
+./scripts/run-local-worker-to-vps.sh

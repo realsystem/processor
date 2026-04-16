@@ -20,7 +20,6 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "1️⃣  Fetching worker token from VPS..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Password: xOk0n76EY2EmEe"
 
 WORKER_TOKEN=$(ssh "$VPS_USER@$VPS_IP" "cat /opt/processor/WORKER_TOKEN.txt 2>/dev/null" || echo "")
 

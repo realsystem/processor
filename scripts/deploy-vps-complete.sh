@@ -20,7 +20,6 @@ echo "  6. Start the service"
 echo "  7. Create API key"
 echo ""
 echo "VPS: $VPS_USER@$VPS_IP"
-echo "Password: xOk0n76EY2EmEe"
 echo ""
 read -p "Press Enter to continue..."
 
@@ -253,7 +252,6 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "3️⃣  Uploading to VPS..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Password: xOk0n76EY2EmEe"
 
 scp /tmp/processor-vps-deploy.tar.gz "$VPS_USER@$VPS_IP:/tmp/"
 
@@ -266,7 +264,6 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "4️⃣  Installing on VPS..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Password: xOk0n76EY2EmEe"
 
 ssh "$VPS_USER@$VPS_IP" "cd /tmp && tar xzf processor-vps-deploy.tar.gz && bash install.sh"
 
@@ -277,7 +274,6 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "5️⃣  Creating API Key..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Password: xOk0n76EY2EmEe"
 
 ssh "$VPS_USER@$VPS_IP" "/opt/processor/create-key.sh admin@example.com 'Production Key'" | tee /tmp/api-key-output.txt
 

@@ -47,8 +47,6 @@ This will:
 - Start worker container connected to VPS
 - Show worker logs
 
-Password: `xOk0n76EY2EmEe`
-
 ### 3. Get API Key
 
 If you don't have an API key yet:

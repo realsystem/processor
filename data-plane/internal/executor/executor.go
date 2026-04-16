@@ -113,12 +113,26 @@ type OllamaGenerateResponse struct {
 }
 
 func (e *OllamaExecutor) Execute(ctx context.Context, jobType string, input map[string]interface{}) (map[string]interface{}, error) {
-	// Extract parameters
-	prompt, ok := input["prompt"].(string)
-	if !ok || prompt == "" {
-		return nil, fmt.Errorf("prompt is required")
+	// Extract prompt - support multiple input formats for convenience
+	var prompt string
+
+	// Try structured format first: {"prompt": "...", "model": "..."}
+	if p, ok := input["prompt"].(string); ok && p != "" {
+		prompt = p
+	} else if t, ok := input["text"].(string); ok && t != "" {
+		// Plain text format: {"text": "..."}
+		prompt = t
+	} else if m, ok := input["message"].(string); ok && m != "" {
+		// Message format: {"message": "..."}
+		prompt = m
+	} else if i, ok := input["input"].(string); ok && i != "" {
+		// Input format: {"input": "..."}
+		prompt = i
+	} else {
+		return nil, fmt.Errorf("prompt is required (use 'prompt', 'text', 'message', or 'input' field)")
 	}
 
+	// Extract model (optional, defaults to llama3.2)
 	model, ok := input["model"].(string)
 	if !ok || model == "" {
 		model = "llama3.2" // Default to llama3.2 (small, fast)
