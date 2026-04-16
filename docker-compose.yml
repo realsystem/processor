@@ -77,6 +77,7 @@ services:
       - POLL_INTERVAL=5s
       - WORKER_CAPABILITIES=noop,sleep,echo_metadata,ollama_chat
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
     networks:
       - processor-network
     depends_on:

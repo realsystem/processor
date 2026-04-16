@@ -1,7 +1,8 @@
 .PHONY: help build test clean dev lint control-plane data-plane \
         dev-up dev-down dev-logs dev-restart dev-status dev-clean dev-reset \
         smoke-test integration-test test-all \
-        migrate seed-dev create-user
+        migrate seed-dev create-user create-api-key-docker \
+        ollama-setup ollama-start ollama-stop ollama-pull-model ollama-test ollama-status
 
 help:
 	@echo "Processor Monorepo - Available Commands"
@@ -32,7 +33,16 @@ help:
 	@echo "  make seed-dev       - Seed database with dev data"
 	@echo ""
 	@echo "User Management:"
-	@echo "  make create-user    - Create a new user (interactive)"
+	@echo "  make create-user           - Create a new user (interactive)"
+	@echo "  make create-api-key-docker - Create API key for Docker environment"
+	@echo ""
+	@echo "Ollama Setup (for LLM jobs):"
+	@echo "  make ollama-setup   - Setup Ollama (start + pull llama3.2 model)"
+	@echo "  make ollama-start   - Start Ollama Docker container"
+	@echo "  make ollama-stop    - Stop Ollama container"
+	@echo "  make ollama-pull-model - Pull llama3.2 model"
+	@echo "  make ollama-test    - Test Ollama integration end-to-end"
+	@echo "  make ollama-status  - Check Ollama status"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean          - Clean build artifacts and Docker volumes"
@@ -169,6 +179,33 @@ create-user:
 	fi; \
 	bash scripts/create-user.sh "$$email" "$$password" "$$is_admin"
 
+create-api-key-docker:
+	@echo "Creating API Key for Docker Environment"
+	@echo "========================================"
+	@echo ""
+	@if ! docker ps --format '{{.Names}}' | grep -q 'processor-control-plane'; then \
+		echo "❌ Docker services not running. Start with: make dev-up"; \
+		exit 1; \
+	fi
+	@read -p "Email (default: admin@example.com): " email; \
+	email=$${email:-admin@example.com}; \
+	read -p "Key Name (default: Docker Key): " name; \
+	name=$${name:-Docker Key}; \
+	echo ""; \
+	echo "Copying database from Docker..."; \
+	docker cp processor-control-plane:/data/processor.db /tmp/processor-docker.db; \
+	echo "Creating API key..."; \
+	cd control-plane && go run scripts/create-api-key.go \
+		-email "$$email" \
+		-name "$$name" \
+		-db /tmp/processor-docker.db; \
+	echo ""; \
+	echo "Copying database back to Docker..."; \
+	docker cp /tmp/processor-docker.db processor-control-plane:/data/processor.db; \
+	rm /tmp/processor-docker.db; \
+	echo ""; \
+	echo "✅ API key created in Docker environment!"
+
 # Clean
 clean:
 	@echo "Cleaning build artifacts..."
@@ -183,3 +220,103 @@ dev:
 	@echo "This will start the control-plane in the foreground."
 	@echo "Run 'cd data-plane && make dev' in another terminal to start the worker."
 	cd control-plane && make dev
+
+# Ollama Setup
+ollama-setup: ollama-start ollama-pull-model
+	@echo ""
+	@echo "✅ Ollama setup complete!"
+	@echo ""
+	@echo "Ollama is running on http://localhost:11434"
+	@echo "Model llama3.2 is ready to use"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Start services:  make dev-up"
+	@echo "  2. Test Ollama:     make ollama-test"
+	@echo ""
+	@echo "See docs/OLLAMA_SETUP.md for more details"
+
+ollama-start:
+	@echo "Starting Ollama Docker container..."
+	@if docker ps -a --format '{{.Names}}' | grep -q '^ollama$$'; then \
+		if docker ps --format '{{.Names}}' | grep -q '^ollama$$'; then \
+			echo "✅ Ollama container is already running"; \
+		else \
+			echo "Starting existing Ollama container..."; \
+			docker start ollama; \
+			echo "✅ Ollama container started"; \
+		fi \
+	else \
+		echo "Pulling latest Ollama image..."; \
+		docker pull ollama/ollama:latest; \
+		echo "Creating new Ollama container..."; \
+		docker run -d \
+			--name ollama \
+			-p 11434:11434 \
+			-v ollama-data:/root/.ollama \
+			ollama/ollama:latest; \
+		echo "✅ Ollama container created and started"; \
+		echo "Waiting for Ollama to be ready..."; \
+		sleep 5; \
+	fi
+
+ollama-stop:
+	@echo "Stopping Ollama container..."
+	@if docker ps --format '{{.Names}}' | grep -q '^ollama$$'; then \
+		docker stop ollama; \
+		echo "✅ Ollama container stopped"; \
+	else \
+		echo "Ollama container is not running"; \
+	fi
+
+ollama-pull-model:
+	@echo "Pulling llama3.2 model (this may take a few minutes, ~2GB download)..."
+	@if ! docker ps --format '{{.Names}}' | grep -q '^ollama$$'; then \
+		echo "❌ Ollama container is not running. Run 'make ollama-start' first."; \
+		exit 1; \
+	fi
+	@echo "Ensuring CA certificates are up to date in container..."
+	@docker exec ollama sh -c "apt-get update -qq && apt-get install -y -qq ca-certificates && update-ca-certificates" > /dev/null 2>&1 || true
+	@sleep 2
+	@echo "Downloading model (this will take a few minutes)..."
+	@if docker exec ollama ollama pull llama3.2; then \
+		echo "✅ Model llama3.2 pulled successfully"; \
+	else \
+		echo ""; \
+		echo "❌ Failed to pull model. Try these fixes:"; \
+		echo "  1. Restart: docker restart ollama && make ollama-pull-model"; \
+		echo "  2. Check network connection"; \
+		echo "  3. Restart Docker Desktop"; \
+		exit 1; \
+	fi
+
+ollama-status:
+	@echo "Ollama Status:"
+	@echo ""
+	@if docker ps --format '{{.Names}}' | grep -q '^ollama$$'; then \
+		echo "✅ Container: Running"; \
+		echo ""; \
+		echo "Available models:"; \
+		docker exec ollama ollama list 2>/dev/null || echo "  No models pulled yet"; \
+		echo ""; \
+		echo "API endpoint: http://localhost:11434"; \
+		echo "Test command: curl http://localhost:11434/api/tags"; \
+	else \
+		echo "❌ Container: Not running"; \
+		echo ""; \
+		echo "Start with: make ollama-start"; \
+	fi
+
+ollama-test:
+	@echo "Testing Ollama integration..."
+	@if [ -z "$$API_KEY" ]; then \
+		echo ""; \
+		echo "❌ API_KEY not set"; \
+		echo ""; \
+		echo "Please create an API key and export it:"; \
+		echo "  cd control-plane"; \
+		echo "  go run scripts/create-api-key.go -email admin@example.com -name 'Test Key'"; \
+		echo "  export API_KEY='pk_your_key_here'"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@bash scripts/test-ollama.sh

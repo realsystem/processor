@@ -494,16 +494,18 @@ This will start both the control plane and worker in containers.
 }
 ```
 
-### Ollama Job (stub implementation)
+### Ollama Job (requires Ollama running locally)
 ```json
 {
   "job_type": "ollama_chat",
   "input_metadata": {
-    "model": "llama2",
+    "model": "llama3.2",
     "prompt": "What is the meaning of life?"
   }
 }
 ```
+
+**Note:** This requires Ollama to be installed and running. See [docs/OLLAMA_SETUP.md](OLLAMA_SETUP.md) for setup instructions.
 
 ## Troubleshooting
 
