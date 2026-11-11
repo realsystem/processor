@@ -61,7 +61,7 @@ cmd_up() {
     case "$k" in pk_*) ;; *) die "no API key: $k" ;; esac
     printf '%s\n' "$k" > "$keyfile"
   fi
-  chmod 600 "$keyfile"
+  chmod 644 "$keyfile"   # the bot container reads it as another user; a lab key for a lab service
 
   cat > "$ENV_OUT" <<ENV
 PROCESSOR_URL=http://${LAB_PROJECT}-processor:8080
