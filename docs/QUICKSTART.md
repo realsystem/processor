@@ -188,7 +188,7 @@ go run scripts/create-api-key.go -email admin@example.com -name "My Test Key"
 ✅ API Key created successfully!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔑 API Key: pk_5458996d39ae1cf8_0e0fad5d538b6f225e40c0ca50ab0b1f
+🔑 API Key: pk_XXX
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚠️  IMPORTANT: Save this key now! It won't be shown again.
@@ -198,7 +198,7 @@ go run scripts/create-api-key.go -email admin@example.com -name "My Test Key"
 
 ```bash
 # Export for current terminal session
-export API_KEY="pk_5458996d39ae1cf8_0e0fad5d538b6f225e40c0ca50ab0b1f"
+export API_KEY="pk_XXX"
 
 # Verify it's set
 echo $API_KEY

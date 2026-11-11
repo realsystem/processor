@@ -1,6 +1,6 @@
-# Findings in history that were reviewed (2026-11-11) and are not live secrets in this
-# repository: placeholders in docs, plus one pasted example key from the initial commit
-# (QUICKSTART.md, since deleted). Revoke that key wherever it was created; see PR #3.
+# Findings in history that were reviewed (2026-11-11): all are documentation examples, not
+# real keys. The example key in QUICKSTART.md (initial commit) is now pk_XXX in
+# docs/QUICKSTART.md; the old value stays only in git history.
 a997d696f42df1f67e334991ce94f8d3827fe658:IMPLEMENTATION_SUMMARY.md:curl-auth-header:282
 a997d696f42df1f67e334991ce94f8d3827fe658:IMPLEMENTATION_SUMMARY.md:curl-auth-header:292
 a997d696f42df1f67e334991ce94f8d3827fe658:QUICKSTART.md:generic-api-key:191
