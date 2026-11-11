@@ -1,0 +1,55 @@
+name: Lab
+
+# The lab part of this repo (lab/): control plane + worker + mock-llm, built from the
+# checkout. On changes to lab/ or the Dockerfiles, and nightly.
+on:
+  pull_request:
+    paths: ["lab/**", "control-plane/Dockerfile", "data-plane/Dockerfile", ".github/workflows/lab.yml"]
+  push:
+    branches: [main]
+    paths: ["lab/**"]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mock-llm:
+    name: mock-llm unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 lab/mock-llm/test_server.py
+
+  lab:
+    name: lab up, job, modes, down
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LAB_DIR: /tmp/autonomy-lab
+    steps:
+      - uses: actions/checkout@v4
+      - name: Up (builds from this checkout) and one job through to mock-llm
+        run: lab/lab.sh up
+      - name: The model is asked what a real one would be asked
+        run: |
+          grep -q '"hello"' "$LAB_DIR/processor/mock-llm/mock-llm.jsonl"
+      - name: Model modes
+        run: |
+          lab/lab.sh llm echo
+          lab/lab.sh llm normal
+          lab/lab.sh llm down
+          lab/lab.sh llm normal
+          lab/lab.sh check
+      - name: Logs
+        if: always()
+        run: lab/lab.sh logs | tail -150
+      - name: Reset
+        if: always()
+        run: lab/lab.sh reset

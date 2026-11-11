@@ -21,6 +21,23 @@ A production-ready split-system application for asynchronous job processing with
 - Heartbeat and status reporting
 - No inbound network exposure required
 
+## Lab (no real model, no hardware)
+
+`lab/` runs the control plane, a worker and a fake model (`mock-llm`) in Docker, built from
+this checkout, for tests and for the [Autonomy lab](https://github.com/realsystem/autonomy/blob/main/design/lab.md).
+Nothing is downloaded and no model runs.
+
+```bash
+lab/lab.sh up          # build, start, register the worker, make an API key, run one job
+lab/lab.sh check       # one llm.chat job: API -> control plane -> worker -> mock-llm
+lab/lab.sh llm slow 10 # mock-llm modes: normal | down | slow [s] | garbage | echo | error
+lab/lab.sh down        # stop (data kept);  lab/lab.sh reset  removes everything
+```
+
+State is in `~/.autonomy-lab` (`LAB_DIR`). `mock-llm` answers from `lab/mock-llm/rules.json`, speaks
+Ollama `/api/chat` and OpenAI `/v1/chat/completions`, and logs every request it gets to
+`$LAB_DIR/processor/mock-llm/mock-llm.jsonl`, so you can see exactly what a model would have been sent.
+
 ## Key Features
 
 - ✅ User accounts with email/password authentication
