@@ -30,7 +30,9 @@ A production-ready split-system application for asynchronous job processing with
 - ✅ Admin interface for operations
 - ✅ Audit logging
 - ✅ Production-ready security
-- ✅ Generic executor interface ready for Ollama and other batch tasks
+- ✅ Generic executor interface; `llm.chat` for Ollama and OpenAI-compatible servers
+- ✅ Optional per job: idempotency keys, trace context, cancellation, waiting for the result, retention and sensitive data handling ([job options](docs/job-options.md))
+- ✅ Optional per-worker Ed25519 identities instead of the shared worker token
 
 ## Quick Start
 
@@ -58,6 +60,8 @@ See [docs/deployment.md](docs/deployment.md) for complete production deployment 
 - [Architecture](docs/architecture.md) - System design and components
 - [API Reference](docs/api.md) - HTTP API documentation
 - [Deployment](docs/deployment.md) - Production deployment guide
+- [Job options and signed workers](docs/job-options.md) - idempotency, tracing, cancel, retention, `llm.chat`, worker keys
+- [Private network deployment](docs/private-network.md) - control plane on any host in a Tailscale/WireGuard network, GPU worker at home
 - [Security](docs/security.md) - Security model and considerations
 - [Operations](docs/operations.md) - Operating and troubleshooting
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -27,6 +28,8 @@ var (
 	migrateFlag      = flag.Bool("migrate", false, "Run database migrations and exit")
 	createAPIKeyFlag = flag.String("create-api-key", "", "Create an API key for the user with this email, print it and exit (the user must exist)")
 	apiKeyNameFlag   = flag.String("api-key-name", "cli", "Name of the API key created with -create-api-key")
+	registerKeyFlag  = flag.String("register-worker-key", "", "Register a worker's Ed25519 public key: <worker_id>=<base64 public key>, then exit")
+	capabilitiesFlag = flag.String("capabilities", "", "Comma-separated capabilities recorded with -register-worker-key")
 )
 
 func main() {
@@ -59,6 +62,22 @@ func main() {
 
 	// Initialize services
 	authService := auth.NewService(database)
+
+	if *registerKeyFlag != "" {
+		id, key, found := strings.Cut(*registerKeyFlag, "=")
+		if !found || id == "" || key == "" {
+			log.Fatalf("-register-worker-key wants <worker_id>=<base64 public key>")
+		}
+		var caps []string
+		if *capabilitiesFlag != "" {
+			caps = strings.Split(*capabilitiesFlag, ",")
+		}
+		if err := workers.NewService(database).SetPublicKey(id, key, caps); err != nil {
+			log.Fatalf("Failed to register worker key: %v", err)
+		}
+		fmt.Printf("registered public key for worker %s\n", id)
+		return
+	}
 
 	if *createAPIKeyFlag != "" {
 		user, err := authService.GetUserByEmail(*createAPIKeyFlag)
@@ -102,6 +121,8 @@ func main() {
 
 	// Initialize API
 	api := httpapi.NewAPI(authService, jobsService, webhookService, emailService, workerService, cfg.WorkerToken)
+	api.SetWorkerAuth(cfg.WorkerAuth)
+	log.Printf("Worker authentication: %s", cfg.WorkerAuth)
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService)
@@ -231,7 +252,9 @@ func main() {
 	}))))
 
 	// Job detail endpoint
-	mux.Handle("/api/v1/jobs/", authMiddleware.APIAuth(http.HandlerFunc(api.GetJob)))
+	mux.Handle("/api/v1/jobs/", authMiddleware.APIAuth(http.HandlerFunc(api.JobAction)))
+	mux.Handle("/api/v1/stats", authMiddleware.APIAuth(http.HandlerFunc(api.Stats)))
+	mux.Handle("/api/v1/job-types", authMiddleware.APIAuth(http.HandlerFunc(api.JobTypes)))
 
 	// API Keys
 	mux.Handle("/api/v1/api-keys", handleMethodRouter(authMiddleware.APIAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -352,6 +375,11 @@ func startBackgroundWorkers(ctx context.Context, jobsService *jobs.Service, webh
 					log.Printf("Error releasing expired leases: %v", err)
 				} else if count > 0 {
 					log.Printf("Released %d expired leases", count)
+				}
+				if purged, err := jobsService.PurgeExpired(time.Now()); err != nil {
+					log.Printf("Error purging expired job data: %v", err)
+				} else if purged > 0 {
+					log.Printf("Purged input and result of %d jobs past their retention", purged)
 				}
 			}
 		}

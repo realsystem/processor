@@ -165,7 +165,7 @@ func (e *OllamaExecutor) Execute(ctx context.Context, jobType string, input map[
 		}
 	}
 
-	log.Printf("OllamaExecutor: calling Ollama at %s with model=%s, prompt=%s", baseURL, model, prompt)
+	log.Printf("OllamaExecutor: calling Ollama at %s with model=%s (%d-character prompt)", baseURL, model, len(prompt))
 
 	// Prepare request
 	reqBody := OllamaGenerateRequest{
@@ -238,5 +238,6 @@ func NewDefaultRegistry(ollamaBaseURL string) *Registry {
 	registry.Register("sleep", &SleepExecutor{})
 	registry.Register("echo_metadata", &EchoExecutor{})
 	registry.Register("ollama_chat", &OllamaExecutor{BaseURL: ollamaBaseURL})
+	registry.Register("llm.chat", &LLMChatExecutor{Backend: "ollama", BaseURL: ollamaBaseURL, DefaultModel: "llama3.2"})
 	return registry
 }

@@ -47,6 +47,15 @@ type Job struct {
 	MaxAttempts    int
 	NotifyEmail    bool
 	NotifyWebhook  bool
+
+	// optional features (see options.go)
+	IdempotencyKey    sql.NullString
+	TraceParent       sql.NullString
+	CorrelationID     sql.NullString
+	Sensitive         bool
+	RetentionSeconds  sql.NullInt64
+	PurgedAt          sql.NullTime
+	CancelRequestedAt sql.NullTime
 }
 
 // JobAttempt represents an execution attempt
@@ -75,46 +84,15 @@ func NewService(database *sql.DB, leaseDuration time.Duration) *Service {
 	}
 }
 
-// Create creates a new job
+// Create creates a new job (see CreateWithOptions for idempotency, tracing and retention)
 func (s *Service) Create(userID, jobType string, inputMetadata map[string]interface{}, priorityWeight, maxAttempts int, notifyEmail, notifyWebhook bool) (*Job, error) {
-	inputJSON, err := json.Marshal(inputMetadata)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal input metadata: %w", err)
-	}
-
-	job := &Job{
-		ID:             db.GenerateID("job"),
-		UserID:         userID,
-		JobType:        jobType,
-		Status:         StatusQueued,
+	job, _, err := s.CreateWithOptions(userID, jobType, inputMetadata, CreateOptions{
 		PriorityWeight: priorityWeight,
-		InputMetadata:  inputMetadata,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-		QueuedAt:       sql.NullTime{Time: time.Now(), Valid: true},
-		AttemptCount:   0,
 		MaxAttempts:    maxAttempts,
 		NotifyEmail:    notifyEmail,
 		NotifyWebhook:  notifyWebhook,
-	}
-
-	query := `
-		INSERT INTO jobs (id, user_id, job_type, status, priority_weight, input_metadata_json,
-			created_at, updated_at, queued_at, attempt_count, max_attempts, notify_email, notify_webhook)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-
-	_, err = s.db.Exec(query,
-		job.ID, job.UserID, job.JobType, job.Status, job.PriorityWeight, string(inputJSON),
-		job.CreatedAt, job.UpdatedAt, job.QueuedAt, job.AttemptCount, job.MaxAttempts,
-		job.NotifyEmail, job.NotifyWebhook,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create job: %w", err)
-	}
-
-	return job, nil
+	})
+	return job, err
 }
 
 // Poll polls for the next available job and leases it
@@ -141,7 +119,8 @@ func (s *Service) Poll(workerID string, capabilities []string) (*Job, error) {
 	// Find next available job
 	query := `
 		SELECT id, user_id, job_type, status, priority_weight, input_metadata_json,
-			   created_at, updated_at, queued_at, attempt_count, max_attempts
+			   created_at, updated_at, queued_at, attempt_count, max_attempts,
+			   trace_parent, correlation_id, sensitive
 		FROM jobs
 		WHERE (status = ? OR (status = ? AND lease_expires_at < ?))` + capFilter + `
 		ORDER BY priority_weight DESC, created_at ASC
@@ -159,6 +138,7 @@ func (s *Service) Poll(workerID string, capabilities []string) (*Job, error) {
 	err = tx.QueryRow(query, args...).Scan(
 		&job.ID, &job.UserID, &job.JobType, &job.Status, &job.PriorityWeight, &inputJSON,
 		&job.CreatedAt, &job.UpdatedAt, &job.QueuedAt, &job.AttemptCount, &job.MaxAttempts,
+		&job.TraceParent, &job.CorrelationID, &job.Sensitive,
 	)
 
 	if err != nil {
@@ -200,6 +180,9 @@ func (s *Service) Poll(workerID string, capabilities []string) (*Job, error) {
 
 // Heartbeat extends the lease on a job
 func (s *Service) Heartbeat(jobID, workerID string) (time.Time, error) {
+	if err := s.settleCancel(jobID, workerID); err != nil {
+		return time.Time{}, err
+	}
 	leaseExpiresAt := time.Now().Add(s.leaseDuration)
 
 	query := `
@@ -406,7 +389,9 @@ func (s *Service) Get(jobID string) (*Job, error) {
 		SELECT id, user_id, job_type, status, priority_weight, input_metadata_json,
 		       result_metadata_json, error_text, created_at, updated_at, queued_at,
 		       leased_at, lease_expires_at, started_at, completed_at, worker_id,
-		       attempt_count, max_attempts, notify_email, notify_webhook
+		       attempt_count, max_attempts, notify_email, notify_webhook,
+		       idempotency_key, trace_parent, correlation_id, sensitive, retention_seconds,
+		       purged_at, cancel_requested_at
 		FROM jobs
 		WHERE id = ?
 	`
@@ -419,6 +404,8 @@ func (s *Service) Get(jobID string) (*Job, error) {
 		&resultJSON, &job.ErrorText, &job.CreatedAt, &job.UpdatedAt, &job.QueuedAt,
 		&job.LeasedAt, &job.LeaseExpiresAt, &job.StartedAt, &job.CompletedAt, &job.WorkerID,
 		&job.AttemptCount, &job.MaxAttempts, &job.NotifyEmail, &job.NotifyWebhook,
+		&job.IdempotencyKey, &job.TraceParent, &job.CorrelationID, &job.Sensitive, &job.RetentionSeconds,
+		&job.PurgedAt, &job.CancelRequestedAt,
 	)
 
 	if err != nil {
@@ -538,23 +525,60 @@ func (s *Service) GetAttempts(jobID string) ([]JobAttempt, error) {
 	return attempts, nil
 }
 
-// ReleaseExpiredLeases releases jobs with expired leases
+// ReleaseExpiredLeases releases jobs with expired leases: leased jobs go back to the
+// queue; running jobs whose worker stopped heartbeating count as a failed attempt and are
+// requeued, or dead-lettered when they have no attempts left.
 func (s *Service) ReleaseExpiredLeases() (int, error) {
-	query := `
+	now := time.Now()
+	result, err := s.db.Exec(`
 		UPDATE jobs
 		SET status = ?, leased_at = NULL, lease_expires_at = NULL, worker_id = NULL, updated_at = ?
 		WHERE status = ? AND lease_expires_at < ?
-	`
-
-	result, err := s.db.Exec(query, StatusQueued, time.Now(), StatusLeased, time.Now())
+	`, StatusQueued, now, StatusLeased, now)
 	if err != nil {
 		return 0, err
 	}
+	released, _ := result.RowsAffected()
 
-	rows, err := result.RowsAffected()
+	rows, err := s.db.Query("SELECT id, attempt_count, max_attempts FROM jobs WHERE status = ? AND lease_expires_at < ?",
+		StatusRunning, now)
 	if err != nil {
-		return 0, err
+		return int(released), err
 	}
-
-	return int(rows), nil
+	type lost struct {
+		id            string
+		attempts, max int
+	}
+	var stuck []lost
+	for rows.Next() {
+		var l lost
+		if err := rows.Scan(&l.id, &l.attempts, &l.max); err != nil {
+			rows.Close()
+			return int(released), err
+		}
+		stuck = append(stuck, l)
+	}
+	rows.Close()
+	for _, l := range stuck {
+		next := StatusQueued
+		var completed sql.NullTime
+		if l.attempts+1 >= l.max {
+			next = StatusDeadLetter
+			completed = sql.NullTime{Time: now, Valid: true}
+		}
+		res, err := s.db.Exec(`
+			UPDATE jobs SET status = ?, attempt_count = attempt_count + 1, error_text = ?, completed_at = ?,
+				leased_at = NULL, lease_expires_at = NULL, worker_id = NULL, updated_at = ?
+			WHERE id = ? AND status = ? AND lease_expires_at < ?`,
+			next, "worker stopped sending heartbeats", completed, now, l.id, StatusRunning, now)
+		if err != nil {
+			return int(released), err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			released++
+			s.db.Exec("UPDATE job_attempts SET status = ?, finished_at = ?, error_text = ? WHERE job_id = ? AND status = ?",
+				StatusFailed, now, "lease expired", l.id, StatusRunning)
+		}
+	}
+	return int(released), nil
 }

@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -11,9 +14,26 @@ import (
 	"github.com/processor/data-plane/internal/config"
 	"github.com/processor/data-plane/internal/controlclient"
 	"github.com/processor/data-plane/internal/executor"
+	"github.com/processor/data-plane/internal/identity"
 )
 
 func main() {
+	printKey := flag.Bool("print-public-key", false, "Print this worker's public key (creating WORKER_KEY_FILE if needed) and exit")
+	flag.Parse()
+
+	if *printKey {
+		path := os.Getenv("WORKER_KEY_FILE")
+		if path == "" {
+			log.Fatal("WORKER_KEY_FILE is not set")
+		}
+		key, _, err := identity.LoadOrCreate(path)
+		if err != nil {
+			log.Fatalf("Worker key: %v", err)
+		}
+		fmt.Println(identity.PublicKeyB64(key))
+		return
+	}
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -28,9 +48,28 @@ func main() {
 
 	// Create control plane client
 	client := controlclient.NewClient(cfg.ControlPlaneURL, cfg.WorkerToken)
+	if cfg.WorkerKeyFile != "" {
+		key, created, err := identity.LoadOrCreate(cfg.WorkerKeyFile)
+		if err != nil {
+			log.Fatalf("Worker key: %v", err)
+		}
+		if created {
+			log.Printf("Created worker key %s", cfg.WorkerKeyFile)
+		}
+		log.Printf("Signing requests as %s; public key %s (register it with: server -register-worker-key %s=%s)",
+			cfg.WorkerID, identity.PublicKeyB64(key), cfg.WorkerID, identity.PublicKeyB64(key))
+		client.WithSigningKey(cfg.WorkerID, key)
+	}
 
 	// Create executor registry
 	executorRegistry := executor.NewDefaultRegistry(cfg.OllamaBaseURL)
+	executorRegistry.Register("llm.chat", &executor.LLMChatExecutor{
+		Backend:      cfg.LLMBackend,
+		BaseURL:      cfg.LLMBaseURL,
+		APIKey:       cfg.LLMAPIKey,
+		DefaultModel: cfg.LLMDefaultModel,
+	})
+	log.Printf("llm.chat: %s backend at %s (default model %s)", cfg.LLMBackend, cfg.LLMBaseURL, cfg.LLMDefaultModel)
 
 	// Create worker
 	worker := &Worker{
@@ -100,7 +139,8 @@ func (w *Worker) pollAndExecute(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("Received job: %s (type: %s)", job.ID, job.JobType)
+	// only ids and types are logged; never inputs or results
+	log.Printf("Received job: %s (type: %s%s)", job.ID, job.JobType, traceNote(job))
 
 	// Mark job as running
 	if err := w.client.MarkRunning(w.cfg.WorkerID, job.ID); err != nil {
@@ -108,22 +148,35 @@ func (w *Worker) pollAndExecute(ctx context.Context) error {
 		return err
 	}
 
-	// Start heartbeat goroutine
-	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-	defer cancelHeartbeat()
+	// The job runs until it finishes, times out or is canceled (heartbeat answer)
+	execCtx, cancelExec := context.WithTimeout(ctx, w.cfg.JobTimeout)
+	defer cancelExec()
+	canceled := make(chan struct{})
+	go w.sendHeartbeats(execCtx, job.ID, func() { close(canceled); cancelExec() })
 
-	go w.sendHeartbeats(heartbeatCtx, job.ID)
+	result, err := w.executor.Execute(execCtx, job.JobType, job.InputMetadata)
 
-	// Execute job
-	result, err := w.executeJob(ctx, job)
+	select {
+	case <-canceled:
+		log.Printf("Job %s was canceled; dropped its result", job.ID)
+		return nil
+	default:
+	}
 
 	if err != nil {
-		log.Printf("Job %s failed: %v", job.ID, err)
-		failErr := w.client.Fail(w.cfg.WorkerID, job.ID, err.Error(), true)
-		if failErr != nil {
+		if errors.Is(execCtx.Err(), context.DeadlineExceeded) {
+			err = fmt.Errorf("job timed out after %v", w.cfg.JobTimeout)
+		}
+		msg := err.Error()
+		if job.Sensitive {
+			log.Printf("Job %s failed (details withheld: sensitive job)", job.ID)
+		} else {
+			log.Printf("Job %s failed: %v", job.ID, err)
+		}
+		if failErr := w.client.Fail(w.cfg.WorkerID, job.ID, msg, true); failErr != nil {
 			log.Printf("Failed to report job failure: %v", failErr)
 		}
-		return err
+		return nil
 	}
 
 	log.Printf("Job %s completed successfully", job.ID)
@@ -135,23 +188,14 @@ func (w *Worker) pollAndExecute(ctx context.Context) error {
 	return nil
 }
 
-func (w *Worker) executeJob(ctx context.Context, job *controlclient.Job) (map[string]interface{}, error) {
-	log.Printf("Executing job %s of type %s", job.ID, job.JobType)
-
-	// Create execution context with timeout
-	execCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-
-	// Execute job
-	result, err := w.executor.Execute(execCtx, job.JobType, job.InputMetadata)
-	if err != nil {
-		return nil, err
+func traceNote(job *controlclient.Job) string {
+	if job.TraceParent == "" {
+		return ""
 	}
-
-	return result, nil
+	return ", trace " + job.TraceParent
 }
 
-func (w *Worker) sendHeartbeats(ctx context.Context, jobID string) {
+func (w *Worker) sendHeartbeats(ctx context.Context, jobID string, onCancel func()) {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 
@@ -160,7 +204,12 @@ func (w *Worker) sendHeartbeats(ctx context.Context, jobID string) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := w.client.Heartbeat(w.cfg.WorkerID, jobID); err != nil {
+			err := w.client.Heartbeat(w.cfg.WorkerID, jobID)
+			if errors.Is(err, controlclient.ErrCanceled) {
+				onCancel()
+				return
+			}
+			if err != nil {
 				log.Printf("Failed to send heartbeat: %v", err)
 			}
 		}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -42,13 +43,17 @@ func Open(dbPath string) (*sql.DB, error) {
 func Migrate(db *sql.DB) error {
 	log.Println("Running database migrations...")
 
-	// Read migration files
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		filename TEXT PRIMARY KEY,
+		applied_at DATETIME NOT NULL
+	)`); err != nil {
+		return fmt.Errorf("failed to create schema_migrations: %w", err)
+	}
+
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
 		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
-
-	// Sort migrations by filename
 	var migrationFiles []string
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
@@ -57,25 +62,34 @@ func Migrate(db *sql.DB) error {
 	}
 	sort.Strings(migrationFiles)
 
-	// Run each migration
 	for _, filename := range migrationFiles {
-		log.Printf("Applying migration: %s", filename)
-
+		var n int
+		if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE filename = ?", filename).Scan(&n); err != nil {
+			return err
+		}
+		if n > 0 {
+			continue
+		}
 		content, err := migrationsFS.ReadFile(filepath.Join("migrations", filename))
 		if err != nil {
 			return fmt.Errorf("failed to read migration %s: %w", filename, err)
 		}
-
-		// Execute migration - ignore "already exists" errors since migrations should be idempotent
-		if _, err := db.Exec(string(content)); err != nil {
-			// Check if error is about something already existing (idempotent migrations)
-			errStr := strings.ToLower(err.Error())
-			if strings.Contains(errStr, "already exists") {
-				log.Printf("Migration %s: skipping (already applied)", filename)
-				continue
-			}
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(string(content)); err != nil {
+			tx.Rollback()
 			return fmt.Errorf("failed to apply migration %s: %w", filename, err)
 		}
+		if _, err := tx.Exec("INSERT INTO schema_migrations (filename, applied_at) VALUES (?, ?)", filename, time.Now()); err != nil {
+			tx.Rollback()
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		log.Printf("Applied migration: %s", filename)
 	}
 
 	log.Println("Migrations completed successfully")

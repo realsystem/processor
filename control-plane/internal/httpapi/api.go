@@ -3,6 +3,7 @@ package httpapi
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ type API struct {
 	emailService   *email.Service
 	workerService  *workers.Service
 	workerToken    string
+	workerAuth     string
 }
 
 // NewAPI creates a new API handler
@@ -86,12 +88,16 @@ func (api *API) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		JobType        string                 `json:"job_type"`
-		InputMetadata  map[string]interface{} `json:"input_metadata"`
-		PriorityWeight int                    `json:"priority_weight"`
-		MaxAttempts    int                    `json:"max_attempts"`
-		NotifyEmail    bool                   `json:"notify_email"`
-		NotifyWebhook  bool                   `json:"notify_webhook"`
+		JobType          string                 `json:"job_type"`
+		InputMetadata    map[string]interface{} `json:"input_metadata"`
+		PriorityWeight   int                    `json:"priority_weight"`
+		MaxAttempts      int                    `json:"max_attempts"`
+		NotifyEmail      bool                   `json:"notify_email"`
+		NotifyWebhook    bool                   `json:"notify_webhook"`
+		IdempotencyKey   string                 `json:"idempotency_key"`
+		CorrelationID    string                 `json:"correlation_id"`
+		Sensitive        bool                   `json:"sensitive"`
+		RetentionSeconds int                    `json:"retention_seconds"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -103,33 +109,43 @@ func (api *API) CreateJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_input", "Job type is required")
 		return
 	}
-
-	if req.InputMetadata == nil {
-		req.InputMetadata = make(map[string]interface{})
+	if req.RetentionSeconds < 0 {
+		writeError(w, http.StatusBadRequest, "invalid_input", "retention_seconds must not be negative")
+		return
 	}
 
-	if req.MaxAttempts == 0 {
-		req.MaxAttempts = 3
+	// headers win over body fields (Idempotency-Key and W3C traceparent are standard headers)
+	opts := jobs.CreateOptions{
+		PriorityWeight:   req.PriorityWeight,
+		MaxAttempts:      req.MaxAttempts,
+		NotifyEmail:      req.NotifyEmail,
+		NotifyWebhook:    req.NotifyWebhook,
+		IdempotencyKey:   firstNonEmpty(r.Header.Get("Idempotency-Key"), req.IdempotencyKey),
+		TraceParent:      validTraceParent(r.Header.Get("traceparent")),
+		CorrelationID:    firstNonEmpty(r.Header.Get("X-Correlation-Id"), req.CorrelationID),
+		Sensitive:        req.Sensitive,
+		RetentionSeconds: req.RetentionSeconds,
+	}
+	if len(opts.IdempotencyKey) > 200 || len(opts.CorrelationID) > 200 {
+		writeError(w, http.StatusBadRequest, "invalid_input", "Idempotency key and correlation id are limited to 200 characters")
+		return
 	}
 
-	job, err := api.jobsService.Create(
-		user.ID,
-		req.JobType,
-		req.InputMetadata,
-		req.PriorityWeight,
-		req.MaxAttempts,
-		req.NotifyEmail,
-		req.NotifyWebhook,
-	)
-
+	job, existing, err := api.jobsService.CreateWithOptions(user.ID, req.JobType, req.InputMetadata, opts)
+	if errors.Is(err, jobs.ErrIdempotencyConflict) {
+		writeError(w, http.StatusConflict, "idempotency_conflict", err.Error())
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to create job")
 		return
 	}
 
+	data := formatJob(job)
+	data["idempotent_replay"] = existing
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
-		"data":    formatJob(job),
+		"data":    data,
 	})
 }
 
@@ -181,7 +197,7 @@ func (api *API) GetJob(w http.ResponseWriter, r *http.Request) {
 
 	jobID := extractID(r.URL.Path, "/api/v1/jobs/")
 
-	job, err := api.jobsService.Get(jobID)
+	job, err := api.waitForJob(r, jobID)
 	if err != nil {
 		if err == jobs.ErrJobNotFound {
 			writeError(w, http.StatusNotFound, "not_found", "Job not found")
@@ -430,8 +446,8 @@ func (api *API) DeleteWebhook(w http.ResponseWriter, r *http.Request) {
 
 // WorkerPoll handles worker polling for jobs
 func (api *API) WorkerPoll(w http.ResponseWriter, r *http.Request) {
-	if !api.validateWorkerToken(r) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "Invalid worker token")
+	body, signedID, ok := api.authWorker(w, r)
+	if !ok {
 		return
 	}
 
@@ -440,8 +456,11 @@ func (api *API) WorkerPoll(w http.ResponseWriter, r *http.Request) {
 		Capabilities []string `json:"capabilities"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_input", "Invalid JSON")
+		return
+	}
+	if !sameWorker(w, signedID, req.WorkerID) {
 		return
 	}
 
@@ -479,6 +498,9 @@ func (api *API) WorkerPoll(w http.ResponseWriter, r *http.Request) {
 				"max_attempts":     job.MaxAttempts,
 				"attempt_count":    job.AttemptCount,
 				"lease_expires_at": formatNullTime(job.LeaseExpiresAt),
+				"trace_parent":     formatNullString(job.TraceParent),
+				"correlation_id":   formatNullString(job.CorrelationID),
+				"sensitive":        job.Sensitive,
 			},
 		},
 	})
@@ -486,8 +508,8 @@ func (api *API) WorkerPoll(w http.ResponseWriter, r *http.Request) {
 
 // WorkerHeartbeat handles worker heartbeats
 func (api *API) WorkerHeartbeat(w http.ResponseWriter, r *http.Request) {
-	if !api.validateWorkerToken(r) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "Invalid worker token")
+	body, signedID, ok := api.authWorker(w, r)
+	if !ok {
 		return
 	}
 
@@ -496,14 +518,22 @@ func (api *API) WorkerHeartbeat(w http.ResponseWriter, r *http.Request) {
 		JobID    string `json:"job_id"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_input", "Invalid JSON")
+		return
+	}
+	if !sameWorker(w, signedID, req.WorkerID) {
 		return
 	}
 
 	api.workerService.UpdateLastSeen(req.WorkerID)
 
 	leaseExpiresAt, err := api.jobsService.Heartbeat(req.JobID, req.WorkerID)
+	if errors.Is(err, jobs.ErrCanceled) {
+		api.workerService.UpdateCurrentJob(req.WorkerID, sql.NullString{})
+		writeError(w, http.StatusConflict, "canceled", "Job was canceled; stop working on it")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -520,8 +550,8 @@ func (api *API) WorkerHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 // WorkerStartJob marks a job as running
 func (api *API) WorkerStartJob(w http.ResponseWriter, r *http.Request) {
-	if !api.validateWorkerToken(r) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "Invalid worker token")
+	body, signedID, ok := api.authWorker(w, r)
+	if !ok {
 		return
 	}
 
@@ -532,8 +562,11 @@ func (api *API) WorkerStartJob(w http.ResponseWriter, r *http.Request) {
 		WorkerID string `json:"worker_id"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_input", "Invalid JSON")
+		return
+	}
+	if !sameWorker(w, signedID, req.WorkerID) {
 		return
 	}
 
@@ -556,8 +589,8 @@ func (api *API) WorkerStartJob(w http.ResponseWriter, r *http.Request) {
 
 // WorkerCompleteJob marks a job as completed
 func (api *API) WorkerCompleteJob(w http.ResponseWriter, r *http.Request) {
-	if !api.validateWorkerToken(r) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "Invalid worker token")
+	body, signedID, ok := api.authWorker(w, r)
+	if !ok {
 		return
 	}
 
@@ -569,8 +602,11 @@ func (api *API) WorkerCompleteJob(w http.ResponseWriter, r *http.Request) {
 		ResultMetadata map[string]interface{} `json:"result_metadata"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_input", "Invalid JSON")
+		return
+	}
+	if !sameWorker(w, signedID, req.WorkerID) {
 		return
 	}
 
@@ -596,8 +632,8 @@ func (api *API) WorkerCompleteJob(w http.ResponseWriter, r *http.Request) {
 
 // WorkerFailJob marks a job as failed
 func (api *API) WorkerFailJob(w http.ResponseWriter, r *http.Request) {
-	if !api.validateWorkerToken(r) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "Invalid worker token")
+	body, signedID, ok := api.authWorker(w, r)
+	if !ok {
 		return
 	}
 
@@ -610,8 +646,11 @@ func (api *API) WorkerFailJob(w http.ResponseWriter, r *http.Request) {
 		ShouldRetry bool   `json:"should_retry"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_input", "Invalid JSON")
+		return
+	}
+	if !sameWorker(w, signedID, req.WorkerID) {
 		return
 	}
 
@@ -643,11 +682,6 @@ func (api *API) WorkerFailJob(w http.ResponseWriter, r *http.Request) {
 
 // Helper functions
 
-func (api *API) validateWorkerToken(r *http.Request) bool {
-	token := r.Header.Get("X-Worker-Token")
-	return token == api.workerToken
-}
-
 func (api *API) sendNotifications(jobID, eventType string) {
 	job, err := api.jobsService.Get(jobID)
 	if err != nil {
@@ -668,7 +702,7 @@ func (api *API) sendNotifications(jobID, eventType string) {
 			"job_type": job.JobType,
 			"status":   job.Status,
 		}
-		if job.ErrorText.Valid && job.ErrorText.String != "" {
+		if job.ErrorText.Valid && job.ErrorText.String != "" && !job.Sensitive {
 			payload["error"] = job.ErrorText.String
 		}
 
@@ -679,11 +713,17 @@ func (api *API) sendNotifications(jobID, eventType string) {
 	if job.NotifyWebhook {
 		webhooks, err := api.webhookService.FindActiveWebhooksForEvent(job.UserID, eventType)
 		if err == nil {
+			data := formatJob(job)
+			if job.Sensitive { // never send a sensitive job's input or result elsewhere
+				delete(data, "input_metadata")
+				delete(data, "result_metadata")
+				delete(data, "error_text")
+			}
 			payload := map[string]interface{}{
 				"event":     eventType,
 				"timestamp": time.Now().UTC().Format(time.RFC3339),
 				"data": map[string]interface{}{
-					"job": formatJob(job),
+					"job": data,
 				},
 			}
 
@@ -712,6 +752,11 @@ func formatJob(job *jobs.Job) map[string]interface{} {
 		"worker_id":       formatNullString(job.WorkerID),
 		"attempt_count":   job.AttemptCount,
 		"max_attempts":    job.MaxAttempts,
+		"idempotency_key": formatNullString(job.IdempotencyKey),
+		"trace_parent":    formatNullString(job.TraceParent),
+		"correlation_id":  formatNullString(job.CorrelationID),
+		"sensitive":       job.Sensitive,
+		"purged_at":       formatNullTime(job.PurgedAt),
 	}
 }
 

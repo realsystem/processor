@@ -19,6 +19,9 @@ type Config struct {
 	// Security
 	SessionSecret string
 	WorkerToken   string
+	// WorkerAuth: "token" (shared WORKER_TOKEN, default), "signature" (per-worker
+	// Ed25519 keys only) or "any" (either)
+	WorkerAuth string
 
 	// Environment
 	Env      string
@@ -44,6 +47,7 @@ func Load() (*Config, error) {
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
 		SessionSecret: getEnv("SESSION_SECRET", ""),
 		WorkerToken:   getEnv("WORKER_TOKEN", ""),
+		WorkerAuth:    getEnv("WORKER_AUTH", "token"),
 		Env:           getEnv("ENV", "development"),
 		LogLevel:      getEnv("LOG_LEVEL", "info"),
 		AdminEmail:    getEnv("ADMIN_EMAIL", ""),
@@ -67,18 +71,23 @@ func (c *Config) Validate() error {
 	if c.DatabasePath == "" {
 		return fmt.Errorf("DATABASE_PATH is required")
 	}
+	switch c.WorkerAuth {
+	case "token", "signature", "any":
+	default:
+		return fmt.Errorf("WORKER_AUTH must be token, signature or any")
+	}
 
 	if c.Env == "production" {
 		if c.SessionSecret == "" {
 			return fmt.Errorf("SESSION_SECRET is required in production")
 		}
-		if c.WorkerToken == "" {
-			return fmt.Errorf("WORKER_TOKEN is required in production")
+		if c.WorkerToken == "" && c.WorkerAuth != "signature" {
+			return fmt.Errorf("WORKER_TOKEN is required in production (or WORKER_AUTH=signature)")
 		}
 		if len(c.SessionSecret) < 32 {
 			return fmt.Errorf("SESSION_SECRET must be at least 32 characters")
 		}
-		if len(c.WorkerToken) < 32 {
+		if c.WorkerToken != "" && len(c.WorkerToken) < 32 {
 			return fmt.Errorf("WORKER_TOKEN must be at least 32 characters")
 		}
 	}
