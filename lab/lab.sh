@@ -29,7 +29,7 @@ need_docker() {
 
 mock_mode() { # mode [delay]
   local body="{\"mode\":\"$1\"${2:+,\"delay\":$2}}"
-  docker exec "${LAB_PROJECT}-mock-llm" python - "$body" <<'PY'
+  docker exec -i "${LAB_PROJECT}-mock-llm" python - "$body" <<'PY'
 import sys, urllib.request
 r = urllib.request.Request("http://127.0.0.1:11434/_lab/mode", sys.argv[1].encode(),
                            {"Content-Type": "application/json"})
@@ -61,7 +61,7 @@ cmd_up() {
     case "$k" in pk_*) ;; *) die "no API key: $k" ;; esac
     printf '%s\n' "$k" > "$keyfile"
   fi
-  chmod 600 "$keyfile"
+  chmod 644 "$keyfile"   # the bot container reads it as another user; a lab key for a lab service
 
   cat > "$ENV_OUT" <<ENV
 PROCESSOR_URL=http://${LAB_PROJECT}-processor:8080

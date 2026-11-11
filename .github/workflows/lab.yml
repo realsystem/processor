@@ -43,8 +43,13 @@ jobs:
       - name: Model modes
         run: |
           lab/lab.sh llm echo
+          lab/lab.sh check || true # echo mode answers with the prompt: still a result
+          lab/lab.sh llm error
+          if lab/lab.sh check; then echo "the check passed with the model in error mode"; exit 1; fi
           lab/lab.sh llm normal
+          lab/lab.sh check
           lab/lab.sh llm down
+          if lab/lab.sh check; then echo "the check passed with the model stopped"; exit 1; fi
           lab/lab.sh llm normal
           lab/lab.sh check
       - name: Logs
@@ -53,3 +58,36 @@ jobs:
       - name: Reset
         if: always()
         run: lab/lab.sh reset
+
+  # The whole lab: this repo's part plus edge_server's and autonomy's, orchestrated by
+  # autonomy/ops/lab/lab.sh, with a mocked Telegram API. (processor is private, so this runs
+  # here, where the checkout is possible, rather than in the other two repos.)
+  full:
+    name: full lab (autonomy orchestrator, verify)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LAB_DIR: /tmp/autonomy-lab
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: processor
+      - uses: actions/checkout@v4
+        with:
+          repository: realsystem/edge_server
+          path: edge_server
+      - uses: actions/checkout@v4
+        with:
+          repository: realsystem/autonomy
+          path: autonomy
+          ref: main
+      - name: Up (builds from the three checkouts)
+        run: autonomy/ops/lab/lab.sh up --mock-telegram
+      - name: Verify every scenario
+        run: autonomy/ops/lab/lab.sh verify
+      - name: Logs
+        if: always()
+        run: autonomy/ops/lab/lab.sh logs | tail -200
+      - name: Reset
+        if: always()
+        run: autonomy/ops/lab/lab.sh reset
