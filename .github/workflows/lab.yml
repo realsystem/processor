@@ -80,7 +80,7 @@ jobs:
         with:
           repository: realsystem/autonomy
           path: autonomy
-          ref: lab-orchestrator # TEMP: back to main once merged
+          ref: main
       - name: Up (builds from the three checkouts)
         run: autonomy/ops/lab/lab.sh up --mock-telegram
       - name: Verify every scenario
