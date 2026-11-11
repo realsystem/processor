@@ -24,7 +24,9 @@ import (
 )
 
 var (
-	migrateFlag = flag.Bool("migrate", false, "Run database migrations and exit")
+	migrateFlag      = flag.Bool("migrate", false, "Run database migrations and exit")
+	createAPIKeyFlag = flag.String("create-api-key", "", "Create an API key for the user with this email, print it and exit (the user must exist)")
+	apiKeyNameFlag   = flag.String("api-key-name", "cli", "Name of the API key created with -create-api-key")
 )
 
 func main() {
@@ -58,6 +60,19 @@ func main() {
 
 	// Initialize services
 	authService := auth.NewService(database)
+
+	if *createAPIKeyFlag != "" {
+		user, err := authService.GetUserByEmail(*createAPIKeyFlag)
+		if err != nil {
+			log.Fatalf("No user %s: %v", *createAPIKeyFlag, err)
+		}
+		key, _, err := authService.CreateAPIKey(user.ID, *apiKeyNameFlag)
+		if err != nil {
+			log.Fatalf("Failed to create API key: %v", err)
+		}
+		fmt.Println(key)
+		return
+	}
 	jobsService := jobs.NewService(database, cfg.LeaseDuration())
 	webhookService := webhooks.NewService(database)
 	workerService := workers.NewService(database)

@@ -391,12 +391,13 @@ func TestFail(t *testing.T) {
 	t.Run("fail exceeding max attempts", func(t *testing.T) {
 		// Create, lease, and start a job with max_attempts=1
 		input := map[string]interface{}{"message": "test"}
-		_, err := service.Create(userID, "noop", input, 10, 1, false, false)
+		// own job type: the job requeued by the previous subtest must not be polled here
+		created, err := service.Create(userID, "sleep", input, 10, 1, false, false)
 		if err != nil {
 			t.Fatalf("Failed to create job: %v", err)
 		}
 
-		job, err := service.Poll(workerID, []string{"noop"})
+		job, err := service.Poll(workerID, []string{"sleep"})
 		if err != nil {
 			t.Fatalf("Failed to poll job: %v", err)
 		}
@@ -404,6 +405,10 @@ func TestFail(t *testing.T) {
 		err = service.MarkRunning(job.ID, workerID)
 		if err != nil {
 			t.Fatalf("Failed to mark running: %v", err)
+		}
+
+		if job.ID != created.ID {
+			t.Fatalf("polled %s, want %s", job.ID, created.ID)
 		}
 
 		// Fail - should go to dead letter

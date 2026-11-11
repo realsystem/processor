@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	StatusQueued      = "queued"
-	StatusLeased      = "leased"
-	StatusRunning     = "running"
-	StatusSucceeded   = "succeeded"
-	StatusFailed      = "failed"
-	StatusDeadLetter  = "dead_letter"
-	StatusCanceled    = "canceled"
+	StatusQueued     = "queued"
+	StatusLeased     = "leased"
+	StatusRunning    = "running"
+	StatusSucceeded  = "succeeded"
+	StatusFailed     = "failed"
+	StatusDeadLetter = "dead_letter"
+	StatusCanceled   = "canceled"
 )
 
 var (
@@ -27,26 +27,26 @@ var (
 
 // Job represents a job in the queue
 type Job struct {
-	ID                 string
-	UserID             string
-	JobType            string
-	Status             string
-	PriorityWeight     int
-	InputMetadata      map[string]interface{}
-	ResultMetadata     map[string]interface{}
-	ErrorText          sql.NullString
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-	QueuedAt           sql.NullTime
-	LeasedAt           sql.NullTime
-	LeaseExpiresAt     sql.NullTime
-	StartedAt          sql.NullTime
-	CompletedAt        sql.NullTime
-	WorkerID           sql.NullString
-	AttemptCount       int
-	MaxAttempts        int
-	NotifyEmail        bool
-	NotifyWebhook      bool
+	ID             string
+	UserID         string
+	JobType        string
+	Status         string
+	PriorityWeight int
+	InputMetadata  map[string]interface{}
+	ResultMetadata map[string]interface{}
+	ErrorText      sql.NullString
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	QueuedAt       sql.NullTime
+	LeasedAt       sql.NullTime
+	LeaseExpiresAt sql.NullTime
+	StartedAt      sql.NullTime
+	CompletedAt    sql.NullTime
+	WorkerID       sql.NullString
+	AttemptCount   int
+	MaxAttempts    int
+	NotifyEmail    bool
+	NotifyWebhook  bool
 }
 
 // JobAttempt represents an execution attempt

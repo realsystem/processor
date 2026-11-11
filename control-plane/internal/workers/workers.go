@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	ErrWorkerNotFound   = errors.New("worker not found")
-	ErrInvalidToken     = errors.New("invalid worker token")
+	ErrWorkerNotFound = errors.New("worker not found")
+	ErrInvalidToken   = errors.New("invalid worker token")
 )
 
 // Worker represents a data-plane worker

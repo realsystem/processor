@@ -2,6 +2,9 @@ package executor
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -147,13 +150,33 @@ func TestEchoExecutor(t *testing.T) {
 	})
 }
 
+// fakeOllama answers /api/generate like Ollama and records the requests.
+func fakeOllama(t *testing.T) (*httptest.Server, *[]map[string]interface{}) {
+	t.Helper()
+	var got []map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		got = append(got, body)
+		if r.URL.Path != "/api/generate" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"model": body["model"], "created_at": "2026-01-01T00:00:00Z",
+			"response": "42", "done": true,
+		})
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &got
+}
+
 func TestOllamaExecutor(t *testing.T) {
-	executor := &OllamaExecutor{
-		BaseURL: "http://localhost:11434",
-	}
+	srv, got := fakeOllama(t)
+	executor := &OllamaExecutor{BaseURL: srv.URL}
 	ctx := context.Background()
 
-	t.Run("stub implementation returns response", func(t *testing.T) {
+	t.Run("calls Ollama and returns its response", func(t *testing.T) {
 		input := map[string]interface{}{
 			"model":  "llama2",
 			"prompt": "What is the meaning of life?",
@@ -163,36 +186,38 @@ func TestOllamaExecutor(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Execute failed: %v", err)
 		}
-
-		if result["status"] != "completed" {
-			t.Errorf("Expected status completed, got %v", result["status"])
+		if result["status"] != "completed" || result["model"] != "llama2" || result["response"] != "42" {
+			t.Errorf("unexpected result %v", result)
 		}
-
-		if result["model"] != "llama2" {
-			t.Errorf("Expected model llama2, got %v", result["model"])
-		}
-
 		if result["prompt"] != "What is the meaning of life?" {
 			t.Errorf("Expected prompt to be preserved, got %v", result["prompt"])
 		}
-
-		if result["stub"] != true {
-			t.Error("Expected stub field to be true")
+		last := (*got)[len(*got)-1]
+		if last["prompt"] != "What is the meaning of life?" || last["stream"] != false {
+			t.Errorf("unexpected request %v", last)
 		}
 	})
 
 	t.Run("uses default model when not specified", func(t *testing.T) {
-		input := map[string]interface{}{
-			"prompt": "test prompt",
-		}
-
-		result, err := executor.Execute(ctx, "ollama_chat", input)
+		result, err := executor.Execute(ctx, "ollama_chat", map[string]interface{}{"prompt": "test prompt"})
 		if err != nil {
 			t.Fatalf("Execute failed: %v", err)
 		}
+		if result["model"] != "llama3.2" {
+			t.Errorf("Expected default model llama3.2, got %v", result["model"])
+		}
+	})
 
-		if result["model"] != "llama2" {
-			t.Errorf("Expected default model llama2, got %v", result["model"])
+	t.Run("prompt is required", func(t *testing.T) {
+		if _, err := executor.Execute(ctx, "ollama_chat", map[string]interface{}{}); err == nil {
+			t.Error("expected an error without a prompt")
+		}
+	})
+
+	t.Run("Ollama errors are returned", func(t *testing.T) {
+		bad := &OllamaExecutor{BaseURL: srv.URL + "/nope"}
+		if _, err := bad.Execute(ctx, "ollama_chat", map[string]interface{}{"prompt": "x"}); err == nil {
+			t.Error("expected an error from a 404")
 		}
 	})
 }
@@ -244,8 +269,7 @@ func TestNewDefaultRegistry(t *testing.T) {
 		jobTypes := []string{"noop", "sleep", "echo_metadata", "ollama_chat"}
 
 		for _, jobType := range jobTypes {
-			_, err := registry.Execute(context.Background(), jobType, map[string]interface{}{})
-			if err != nil {
+			if !registry.Has(jobType) {
 				t.Errorf("Expected executor for %s to be registered", jobType)
 			}
 		}
