@@ -473,12 +473,12 @@ func (api *API) WorkerPoll(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"data": map[string]interface{}{
 			"job": map[string]interface{}{
-				"id":                job.ID,
-				"job_type":          job.JobType,
-				"input_metadata":    job.InputMetadata,
-				"max_attempts":      job.MaxAttempts,
-				"attempt_count":     job.AttemptCount,
-				"lease_expires_at":  formatNullTime(job.LeaseExpiresAt),
+				"id":               job.ID,
+				"job_type":         job.JobType,
+				"input_metadata":   job.InputMetadata,
+				"max_attempts":     job.MaxAttempts,
+				"attempt_count":    job.AttemptCount,
+				"lease_expires_at": formatNullTime(job.LeaseExpiresAt),
 			},
 		},
 	})
@@ -696,22 +696,22 @@ func (api *API) sendNotifications(jobID, eventType string) {
 
 func formatJob(job *jobs.Job) map[string]interface{} {
 	return map[string]interface{}{
-		"id":                job.ID,
-		"user_id":           job.UserID,
-		"job_type":          job.JobType,
-		"status":            job.Status,
-		"priority_weight":   job.PriorityWeight,
-		"input_metadata":    job.InputMetadata,
-		"result_metadata":   job.ResultMetadata,
-		"error_text":        formatNullString(job.ErrorText),
-		"created_at":        job.CreatedAt.Format(time.RFC3339),
-		"updated_at":        job.UpdatedAt.Format(time.RFC3339),
-		"queued_at":         formatNullTime(job.QueuedAt),
-		"started_at":        formatNullTime(job.StartedAt),
-		"completed_at":      formatNullTime(job.CompletedAt),
-		"worker_id":         formatNullString(job.WorkerID),
-		"attempt_count":     job.AttemptCount,
-		"max_attempts":      job.MaxAttempts,
+		"id":              job.ID,
+		"user_id":         job.UserID,
+		"job_type":        job.JobType,
+		"status":          job.Status,
+		"priority_weight": job.PriorityWeight,
+		"input_metadata":  job.InputMetadata,
+		"result_metadata": job.ResultMetadata,
+		"error_text":      formatNullString(job.ErrorText),
+		"created_at":      job.CreatedAt.Format(time.RFC3339),
+		"updated_at":      job.UpdatedAt.Format(time.RFC3339),
+		"queued_at":       formatNullTime(job.QueuedAt),
+		"started_at":      formatNullTime(job.StartedAt),
+		"completed_at":    formatNullTime(job.CompletedAt),
+		"worker_id":       formatNullString(job.WorkerID),
+		"attempt_count":   job.AttemptCount,
+		"max_attempts":    job.MaxAttempts,
 	}
 }
 

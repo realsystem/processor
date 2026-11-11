@@ -11,12 +11,12 @@ import (
 
 // Job represents a job from the control plane
 type Job struct {
-	ID              string                 `json:"id"`
-	JobType         string                 `json:"job_type"`
-	InputMetadata   map[string]interface{} `json:"input_metadata"`
-	MaxAttempts     int                    `json:"max_attempts"`
-	AttemptCount    int                    `json:"attempt_count"`
-	LeaseExpiresAt  string                 `json:"lease_expires_at"`
+	ID             string                 `json:"id"`
+	JobType        string                 `json:"job_type"`
+	InputMetadata  map[string]interface{} `json:"input_metadata"`
+	MaxAttempts    int                    `json:"max_attempts"`
+	AttemptCount   int                    `json:"attempt_count"`
+	LeaseExpiresAt string                 `json:"lease_expires_at"`
 }
 
 // Client communicates with the control plane

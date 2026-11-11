@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -34,6 +35,22 @@ func (r *Registry) Register(jobType string, executor Executor) {
 	r.executors[jobType] = executor
 }
 
+// Has reports whether an executor is registered for a job type
+func (r *Registry) Has(jobType string) bool {
+	_, ok := r.executors[jobType]
+	return ok
+}
+
+// Types lists the registered job types
+func (r *Registry) Types() []string {
+	out := make([]string, 0, len(r.executors))
+	for t := range r.executors {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // Execute executes a job
 func (r *Registry) Execute(ctx context.Context, jobType string, input map[string]interface{}) (map[string]interface{}, error) {
 	executor, ok := r.executors[jobType]
@@ -50,7 +67,7 @@ type NoopExecutor struct{}
 func (e *NoopExecutor) Execute(ctx context.Context, jobType string, input map[string]interface{}) (map[string]interface{}, error) {
 	log.Printf("NoopExecutor: executing job (no-op)")
 	return map[string]interface{}{
-		"status": "completed",
+		"status":  "completed",
 		"message": "No operation performed",
 	}, nil
 }
@@ -70,7 +87,7 @@ func (e *SleepExecutor) Execute(ctx context.Context, jobType string, input map[s
 	select {
 	case <-time.After(duration):
 		return map[string]interface{}{
-			"status":           "completed",
+			"status":            "completed",
 			"slept_for_seconds": durationSec,
 		}, nil
 	case <-ctx.Done():
@@ -204,13 +221,13 @@ func (e *OllamaExecutor) Execute(ctx context.Context, jobType string, input map[
 
 	// Return result
 	return map[string]interface{}{
-		"status":            "completed",
-		"model":             ollamaResp.Model,
-		"prompt":            prompt,
-		"response":          ollamaResp.Response,
-		"created_at":        ollamaResp.CreatedAt,
-		"duration_seconds":  duration.Seconds(),
-		"response_length":   len(ollamaResp.Response),
+		"status":           "completed",
+		"model":            ollamaResp.Model,
+		"prompt":           prompt,
+		"response":         ollamaResp.Response,
+		"created_at":       ollamaResp.CreatedAt,
+		"duration_seconds": duration.Seconds(),
+		"response_length":  len(ollamaResp.Response),
 	}, nil
 }
 

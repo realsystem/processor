@@ -26,14 +26,14 @@ const (
 
 // User represents a user account
 type User struct {
-	ID          string
-	Email       string
+	ID           string
+	Email        string
 	PasswordHash string
-	PlanTier    string
-	IsAdmin     bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DisabledAt  sql.NullTime
+	PlanTier     string
+	IsAdmin      bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DisabledAt   sql.NullTime
 }
 
 // Session represents a user session
@@ -357,6 +357,11 @@ func (s *Service) GetUser(userID string) (*User, error) {
 	}
 
 	return &user, nil
+}
+
+// GetUserByEmail returns the user with this email address
+func (s *Service) GetUserByEmail(email string) (*User, error) {
+	return s.getUserByEmail(email)
 }
 
 func (s *Service) getUserByEmail(email string) (*User, error) {

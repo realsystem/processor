@@ -8,18 +8,18 @@ import (
 
 // RateLimiter implements a token bucket rate limiter
 type RateLimiter struct {
-	buckets map[string]*bucket
-	mu      sync.RWMutex
-	rate    int           // requests per interval
+	buckets  map[string]*bucket
+	mu       sync.RWMutex
+	rate     int // requests per interval
 	interval time.Duration
-	burst   int           // max burst size
-	cleanup time.Duration
+	burst    int // max burst size
+	cleanup  time.Duration
 }
 
 type bucket struct {
-	tokens    int
+	tokens     int
 	lastRefill time.Time
-	mu        sync.Mutex
+	mu         sync.Mutex
 }
 
 // NewRateLimiter creates a new rate limiter
@@ -49,7 +49,7 @@ func (rl *RateLimiter) Allow(key string) bool {
 
 	if !exists {
 		b = &bucket{
-			tokens:    rl.burst,
+			tokens:     rl.burst,
 			lastRefill: time.Now(),
 		}
 
@@ -70,7 +70,7 @@ func (b *bucket) take(rate int, interval time.Duration, burst int) bool {
 
 	// Refill tokens based on elapsed time
 	if elapsed > 0 {
-		tokensToAdd := int(elapsed / interval) * rate
+		tokensToAdd := int(elapsed/interval) * rate
 		if tokensToAdd > 0 {
 			b.tokens += tokensToAdd
 			if b.tokens > burst {

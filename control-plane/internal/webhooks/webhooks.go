@@ -23,14 +23,14 @@ var (
 
 // Webhook represents a user webhook configuration
 type Webhook struct {
-	ID                string
-	UserID            string
-	TargetURL         string
-	SecretHash        string
-	IsActive          bool
-	SubscribedEvents  []string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID               string
+	UserID           string
+	TargetURL        string
+	SecretHash       string
+	IsActive         bool
+	SubscribedEvents []string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // WebhookDelivery represents a webhook delivery attempt

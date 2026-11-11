@@ -23,15 +23,15 @@ type TemplateRenderer struct {
 // NewTemplateRenderer creates a new template renderer
 func NewTemplateRenderer(templatesDir string) (*TemplateRenderer, error) {
 	funcMap := template.FuncMap{
-		"formatTime":   formatTime,
-		"formatJSON":   formatJSON,
-		"statusBadge":  statusBadge,
-		"truncate":     truncate,
-		"add":          add,
-		"sub":          sub,
-		"eq":           eq,
-		"gt":           gt,
-		"lt":           lt,
+		"formatTime":  formatTime,
+		"formatJSON":  formatJSON,
+		"statusBadge": statusBadge,
+		"truncate":    truncate,
+		"add":         add,
+		"sub":         sub,
+		"eq":          eq,
+		"gt":          gt,
+		"lt":          lt,
 	}
 
 	return &TemplateRenderer{
