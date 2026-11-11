@@ -43,8 +43,13 @@ jobs:
       - name: Model modes
         run: |
           lab/lab.sh llm echo
+          lab/lab.sh check || true # echo mode answers with the prompt: still a result
+          lab/lab.sh llm error
+          if lab/lab.sh check; then echo "the check passed with the model in error mode"; exit 1; fi
           lab/lab.sh llm normal
+          lab/lab.sh check
           lab/lab.sh llm down
+          if lab/lab.sh check; then echo "the check passed with the model stopped"; exit 1; fi
           lab/lab.sh llm normal
           lab/lab.sh check
       - name: Logs
