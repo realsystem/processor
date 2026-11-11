@@ -49,12 +49,11 @@ func main() {
 	}
 	defer database.Close()
 
-	// Run migrations if requested
+	// Migrations are idempotent: run them on every start (and only them with -migrate)
+	if err := db.Migrate(database); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
 	if *migrateFlag {
-		if err := db.Migrate(database); err != nil {
-			log.Fatalf("Failed to run migrations: %v", err)
-		}
-		log.Println("Migrations completed successfully")
 		return
 	}
 
