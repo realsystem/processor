@@ -1,0 +1,16 @@
+# gitleaks configuration for CI. Development defaults (docker-dev-*, example keys in docs)
+# are not secrets; anything else found is.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "documented examples and development defaults"
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''(^|/)docs/''',
+  '''_test\.go$''',
+]
+regexes = [
+  '''docker-dev-[a-z-]+''',
+  '''pk_(your|YOUR|1234567890abcdef)[A-Za-z0-9_]*''',
+]
