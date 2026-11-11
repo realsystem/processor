@@ -1,5 +1,7 @@
 # Processor - Split-System Batch Job Platform
 
+[![CI](https://github.com/realsystem/processor/actions/workflows/ci.yml/badge.svg)](https://github.com/realsystem/processor/actions/workflows/ci.yml)
+
 A production-ready split-system application for asynchronous job processing with a public control plane and private data plane worker.
 
 ## Architecture Overview
