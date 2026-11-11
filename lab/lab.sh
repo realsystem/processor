@@ -78,8 +78,8 @@ ENV
 cmd_check() {
   [ -s "$ENV_OUT" ] || die "not up (no $ENV_OUT); run: lab/lab.sh up"
   key="$(cat "$LAB_STATE/secrets/bot-api-key")"
-  out="$(docker run --rm --network "$LAB_NETWORK" -e KEY="$key" -e URL="http://${LAB_PROJECT}-processor:8080" \
-    python:3.12-alpine python - <<'PY'
+  out="$(docker run -i --rm --network "$LAB_NETWORK" -e KEY="$key" -e URL="http://${LAB_PROJECT}-processor:8080" \
+    python:3.12-alpine python - 2>&1 <<'PY'
 import json, os, sys, urllib.request
 URL, KEY = os.environ["URL"], os.environ["KEY"]
 def call(method, path, body=None):
@@ -99,7 +99,7 @@ if job["status"] != "succeeded" or not content:
     print(json.dumps(job)[:600], file=sys.stderr)
     sys.exit(1)
 PY
-  2>&1)" || die "smoke job failed: $out"
+  )" || die "smoke job failed: $out"
   say "smoke job ok: $out"
 }
 
