@@ -17,6 +17,7 @@ echo "Capabilities: $CAPABILITIES"
 echo ""
 
 # SSH to VPS and register worker
+# shellcheck disable=SC2087 # the worker id and name are meant to expand here, on this machine
 ssh root@$VPS_IP << EOF
 cd /opt/processor
 

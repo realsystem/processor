@@ -6,7 +6,6 @@ set -e
 
 VPS_IP="66.179.241.224"
 VPS_USER="root"
-APP_DIR="/opt/processor"
 
 echo "🚀 Deploying Processor Control Plane to VPS"
 echo "VPS: $VPS_USER@$VPS_IP"
