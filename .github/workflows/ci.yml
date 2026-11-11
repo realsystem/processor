@@ -44,10 +44,19 @@ jobs:
         run: docker compose up -d --build --wait control-plane
       - name: Smoke test
         run: bash tests/smoke_test.sh
-      - name: Start a worker and run a job end to end
+      - name: Start a worker and run a job end to end (shared token)
         run: |
           docker compose up -d worker
           bash tests/e2e_job.sh
+      - name: Same with a signed worker (WORKER_AUTH=signature)
+        env:
+          WORKER_AUTH: signature
+          WORKER_KEY_FILE: /tmp/worker-key.pem
+        run: |
+          docker compose up -d --wait control-plane
+          docker compose up -d --force-recreate worker
+          sleep 3
+          SIGNED=1 bash tests/e2e_job.sh
       - name: Logs
         if: always()
         run: docker compose logs --no-color | tail -200

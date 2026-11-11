@@ -263,3 +263,51 @@ func (s *Service) EnsureBootstrapWorker(token string) error {
 	_, err = s.Register("bootstrap-worker", token, []string{"noop", "sleep", "echo_metadata", "ollama_chat"}, "1.0.0")
 	return err
 }
+
+// SetPublicKey registers (or replaces) the Ed25519 public key of a worker, creating the
+// worker if needed. Signed requests from that worker id are verified against it.
+func (s *Service) SetPublicKey(workerID, publicKeyB64 string, capabilities []string) error {
+	if err := s.EnsureWorker(workerID, capabilities); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(`UPDATE workers SET public_key = ?, updated_at = ? WHERE id = ?`, publicKeyB64, time.Now(), workerID)
+	return err
+}
+
+// PublicKey returns the registered Ed25519 public key of a worker ("" if none).
+func (s *Service) PublicKey(workerID string) (string, error) {
+	var key sql.NullString
+	err := s.db.QueryRow(`SELECT public_key FROM workers WHERE id = ?`, workerID).Scan(&key)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return key.String, err
+}
+
+// Online lists workers seen within the window, with their capabilities.
+func (s *Service) Online(window time.Duration) (map[string][]string, error) {
+	rows, err := s.db.Query(`SELECT id, capabilities_json, last_seen_at FROM workers WHERE last_seen_at IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	cutoff := time.Now().Add(-window)
+	for rows.Next() {
+		var id string
+		var capJSON sql.NullString
+		var seen time.Time
+		if err := rows.Scan(&id, &capJSON, &seen); err != nil {
+			return nil, err
+		}
+		if seen.Before(cutoff) {
+			continue
+		}
+		var caps []string
+		if capJSON.Valid {
+			_ = json.Unmarshal([]byte(capJSON.String), &caps)
+		}
+		out[id] = caps
+	}
+	return out, rows.Err()
+}
