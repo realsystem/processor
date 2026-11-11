@@ -93,10 +93,13 @@ for _ in range(8):
     if job["status"] in ("succeeded", "failed", "dead_letter"):
         break
 res = job.get("result_metadata") or {}
-print(job["status"], (res.get("content") or "")[:60])
-sys.exit(0 if job["status"] == "succeeded" else 1)
+content = (res.get("content") or "")
+print(job["status"], content[:60])
+if job["status"] != "succeeded" or not content:
+    print(json.dumps(job)[:600], file=sys.stderr)
+    sys.exit(1)
 PY
-  )" || die "smoke job failed: $out"
+  2>&1)" || die "smoke job failed: $out"
   say "smoke job ok: $out"
 }
 

@@ -96,8 +96,8 @@ def log(entry):
         os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
         with _lock, open(LOG_PATH, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"mock-llm: cannot write {LOG_PATH}: {e}", flush=True)
 
 
 class Handler(BaseHTTPRequestHandler):
