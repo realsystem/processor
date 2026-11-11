@@ -1,0 +1,70 @@
+# Processor's part of the lab: control plane + worker + mock-llm, built from this checkout.
+# Driven by lab/lab.sh; not for production. Joins the shared lab network.
+name: ${LAB_PROJECT:-alab}-processor
+
+networks:
+  lab:
+    name: ${LAB_NETWORK:-autonomy-lab}
+    external: true
+
+services:
+  mock-llm:
+    build: ./mock-llm
+    container_name: ${LAB_PROJECT:-alab}-mock-llm
+    labels: {autonomy.lab: "true"}
+    environment:
+      MOCK_LLM_LOG: /data/mock-llm.jsonl
+    volumes:
+      - ${LAB_STATE:?}/mock-llm:/data
+    networks: [lab]
+    restart: unless-stopped
+
+  control-plane:
+    build: {context: ../control-plane}
+    container_name: ${LAB_PROJECT:-alab}-processor
+    labels: {autonomy.lab: "true"}
+    environment:
+      DATABASE_PATH: /data/processor.db
+      SESSION_SECRET: lab-session-secret
+      WORKER_TOKEN: lab-worker-token
+      WORKER_AUTH: signature
+      ENV: development
+      ADMIN_EMAIL: lab@example.com
+      ADMIN_PASSWORD: lab-admin-password
+      LEASE_DURATION: 2m
+    volumes:
+      - processor-data:/data
+    networks: [lab]
+    ports:
+      - "127.0.0.1:${LAB_PROCESSOR_PORT:-18080}:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build: {context: ../data-plane}
+    container_name: ${LAB_PROJECT:-alab}-worker
+    labels: {autonomy.lab: "true"}
+    environment:
+      CONTROL_PLANE_URL: http://control-plane:8080
+      WORKER_ID: worker_lab
+      WORKER_NAME: lab-worker
+      WORKER_KEY_FILE: /key/worker-key.pem
+      POLL_INTERVAL: 1s
+      WORKER_CAPABILITIES: noop,echo_metadata,llm.chat
+      LLM_BACKEND: ollama
+      LLM_BASE_URL: http://mock-llm:11434
+      LLM_DEFAULT_MODEL: mock-llm
+    volumes:
+      - ${LAB_STATE:?}/worker-key:/key
+    networks: [lab]
+    depends_on:
+      control-plane: {condition: service_healthy}
+      mock-llm: {condition: service_healthy}
+    restart: unless-stopped
+
+volumes:
+  processor-data: {}

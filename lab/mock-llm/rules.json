@@ -1,0 +1,9 @@
+{
+  "text": "This answer comes from the mock model (mock-llm), not a real one.",
+  "rules": [
+    {"match": ["reboot", "host.reboot"], "json": {"verdict": "escalate", "note": "A reboot is disruptive; the owner should decide."}},
+    {"match": ["stuck", "no detections", "not detecting", "frozen"], "json": {"answer": "Frigate looks stuck (mock). Restarting it should help.", "restart": "frigate"}},
+    {"match": ["status", "how is", "ok?"], "json": {"answer": "Everything looks fine (mock answer).", "restart": ""}},
+    {"match": ["hello", "hi"], "json": {"answer": "Hello from the mock model.", "restart": ""}}
+  ]
+}

@@ -76,9 +76,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: bash -n
-        run: for f in scripts/*.sh tests/*.sh; do bash -n "$f"; done
+        run: for f in scripts/*.sh tests/*.sh lab/*.sh; do bash -n "$f"; done
       - name: ShellCheck
-        run: shellcheck --severity=warning scripts/*.sh tests/*.sh
+        run: shellcheck --severity=warning scripts/*.sh tests/*.sh lab/*.sh
 
   workflows:
     name: workflow lint
