@@ -51,6 +51,8 @@ Ollama `/api/chat` and OpenAI `/v1/chat/completions`, and logs every request it 
 - ✅ Production-ready security
 - ✅ Generic executor interface; `llm.chat` for Ollama and OpenAI-compatible servers
 - ✅ Optional per job: idempotency keys, trace context, cancellation, waiting for the result, retention and sensitive data handling ([job options](docs/job-options.md))
+- ✅ Autonomy component: [`autonomy.manifest.json`](autonomy.manifest.json) (checked in CI) and the health contract at `/v1/health` and `/v1/ready` (`AUTONOMY_CELL` names the cell)
+- ✅ Optional typed contracts: `job_type@version` with input and result schemas ([job types](docs/job-types.md))
 - ✅ Optional per-worker Ed25519 identities instead of the shared worker token
 
 ## Quick Start
@@ -80,6 +82,7 @@ See [docs/deployment.md](docs/deployment.md) for complete production deployment 
 - [API Reference](docs/api.md) - HTTP API documentation
 - [Deployment](docs/deployment.md) - Production deployment guide
 - [Job options and signed workers](docs/job-options.md) - idempotency, tracing, cancel, retention, `llm.chat`, worker keys
+- [Typed job contracts](docs/job-types.md) - `job_type@version`, input and result schemas, strict mode
 - [Private network deployment](docs/private-network.md) - control plane on any host in a Tailscale/WireGuard network, GPU worker at home
 - [Security](docs/security.md) - Security model and considerations
 - [Operations](docs/operations.md) - Operating and troubleshooting

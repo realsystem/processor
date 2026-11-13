@@ -49,6 +49,7 @@ type Job struct {
 	NotifyWebhook  bool
 
 	// optional features (see options.go)
+	JobTypeVersion    sql.NullString // NULL: the untyped contract, "0"
 	IdempotencyKey    sql.NullString
 	TraceParent       sql.NullString
 	CorrelationID     sql.NullString
@@ -120,7 +121,7 @@ func (s *Service) Poll(workerID string, capabilities []string) (*Job, error) {
 	query := `
 		SELECT id, user_id, job_type, status, priority_weight, input_metadata_json,
 			   created_at, updated_at, queued_at, attempt_count, max_attempts,
-			   trace_parent, correlation_id, sensitive
+			   trace_parent, correlation_id, sensitive, job_type_version
 		FROM jobs
 		WHERE (status = ? OR (status = ? AND lease_expires_at < ?))` + capFilter + `
 		ORDER BY priority_weight DESC, created_at ASC
@@ -138,7 +139,7 @@ func (s *Service) Poll(workerID string, capabilities []string) (*Job, error) {
 	err = tx.QueryRow(query, args...).Scan(
 		&job.ID, &job.UserID, &job.JobType, &job.Status, &job.PriorityWeight, &inputJSON,
 		&job.CreatedAt, &job.UpdatedAt, &job.QueuedAt, &job.AttemptCount, &job.MaxAttempts,
-		&job.TraceParent, &job.CorrelationID, &job.Sensitive,
+		&job.TraceParent, &job.CorrelationID, &job.Sensitive, &job.JobTypeVersion,
 	)
 
 	if err != nil {
@@ -391,7 +392,7 @@ func (s *Service) Get(jobID string) (*Job, error) {
 		       leased_at, lease_expires_at, started_at, completed_at, worker_id,
 		       attempt_count, max_attempts, notify_email, notify_webhook,
 		       idempotency_key, trace_parent, correlation_id, sensitive, retention_seconds,
-		       purged_at, cancel_requested_at
+		       purged_at, cancel_requested_at, job_type_version
 		FROM jobs
 		WHERE id = ?
 	`
@@ -405,7 +406,7 @@ func (s *Service) Get(jobID string) (*Job, error) {
 		&job.LeasedAt, &job.LeaseExpiresAt, &job.StartedAt, &job.CompletedAt, &job.WorkerID,
 		&job.AttemptCount, &job.MaxAttempts, &job.NotifyEmail, &job.NotifyWebhook,
 		&job.IdempotencyKey, &job.TraceParent, &job.CorrelationID, &job.Sensitive, &job.RetentionSeconds,
-		&job.PurgedAt, &job.CancelRequestedAt,
+		&job.PurgedAt, &job.CancelRequestedAt, &job.JobTypeVersion,
 	)
 
 	if err != nil {

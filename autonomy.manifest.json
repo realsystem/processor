@@ -1,0 +1,45 @@
+{
+  "$schema": "https://autonomy.local/spec/v0/manifest.schema.json",
+  "component_id": "svc:job-service",
+  "version": "0.2.0",
+  "kind": "svc",
+  "description": "Durable job queue for home and farm workloads: leases, retries, idempotent submission, trace hand-over, cancellation, signed workers and optional typed job contracts. A general-purpose job platform.",
+  "repository": "https://github.com/realsystem/processor",
+  "contracts": {
+    "health": "^0.1"
+  },
+  "capabilities": {
+    "provides": [
+      {
+        "name": "job.submit",
+        "version": "1.0",
+        "type": "api"
+      }
+    ]
+  },
+  "trust_class": "trusted-input",
+  "data": {
+    "owns": [
+      {
+        "store": "sqlite:/data/processor.db",
+        "kind": "job_queue",
+        "retention_days": 90
+      }
+    ]
+  },
+  "runtime": {
+    "packaging": [
+      "binary",
+      "docker"
+    ],
+    "health": {
+      "liveness": "/v1/health",
+      "readiness": "/v1/ready"
+    },
+    "resources": {
+      "memory_mb": 128,
+      "cpu": 0.5
+    }
+  },
+  "dependencies": []
+}

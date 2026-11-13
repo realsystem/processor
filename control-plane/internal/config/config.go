@@ -23,6 +23,15 @@ type Config struct {
 	// Ed25519 keys only) or "any" (either)
 	WorkerAuth string
 
+	// Typed job contracts (optional): a JSON file of {"job_types": [{name, version, input_schema,
+	// result_schema}]}. With JobTypesStrict, a job type that is not listed is refused.
+	JobTypesFile   string
+	JobTypesStrict bool
+
+	// Cell is the name of the Autonomy cell this instance runs on (the @cell of its component
+	// reference in /v1/health); empty is fine for a standalone install.
+	Cell string
+
 	// Environment
 	Env      string
 	LogLevel string
@@ -42,21 +51,24 @@ type Config struct {
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	cfg := &Config{
-		DatabasePath:  getEnv("DATABASE_PATH", "./processor.db"),
-		HTTPPort:      getEnvInt("HTTP_PORT", 8080),
-		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
-		SessionSecret: getEnv("SESSION_SECRET", ""),
-		WorkerToken:   getEnv("WORKER_TOKEN", ""),
-		WorkerAuth:    getEnv("WORKER_AUTH", "token"),
-		Env:           getEnv("ENV", "development"),
-		LogLevel:      getEnv("LOG_LEVEL", "info"),
-		AdminEmail:    getEnv("ADMIN_EMAIL", ""),
-		AdminPassword: getEnv("ADMIN_PASSWORD", ""),
-		SMTPHost:      getEnv("SMTP_HOST", ""),
-		SMTPPort:      getEnvInt("SMTP_PORT", 587),
-		SMTPUser:      getEnv("SMTP_USER", ""),
-		SMTPPass:      getEnv("SMTP_PASS", ""),
-		SMTPFrom:      getEnv("SMTP_FROM", "noreply@processor.local"),
+		DatabasePath:   getEnv("DATABASE_PATH", "./processor.db"),
+		HTTPPort:       getEnvInt("HTTP_PORT", 8080),
+		BaseURL:        getEnv("BASE_URL", "http://localhost:8080"),
+		SessionSecret:  getEnv("SESSION_SECRET", ""),
+		WorkerToken:    getEnv("WORKER_TOKEN", ""),
+		WorkerAuth:     getEnv("WORKER_AUTH", "token"),
+		Cell:           getEnv("AUTONOMY_CELL", ""),
+		JobTypesFile:   getEnv("JOB_TYPES_FILE", ""),
+		JobTypesStrict: getEnv("JOB_TYPES_STRICT", "") == "true",
+		Env:            getEnv("ENV", "development"),
+		LogLevel:       getEnv("LOG_LEVEL", "info"),
+		AdminEmail:     getEnv("ADMIN_EMAIL", ""),
+		AdminPassword:  getEnv("ADMIN_PASSWORD", ""),
+		SMTPHost:       getEnv("SMTP_HOST", ""),
+		SMTPPort:       getEnvInt("SMTP_PORT", 587),
+		SMTPUser:       getEnv("SMTP_USER", ""),
+		SMTPPass:       getEnv("SMTP_PASS", ""),
+		SMTPFrom:       getEnv("SMTP_FROM", "noreply@processor.local"),
 	}
 
 	if err := cfg.Validate(); err != nil {

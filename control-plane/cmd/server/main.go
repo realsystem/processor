@@ -18,6 +18,7 @@ import (
 	"github.com/processor/control-plane/internal/email"
 	"github.com/processor/control-plane/internal/httpapi"
 	"github.com/processor/control-plane/internal/jobs"
+	"github.com/processor/control-plane/internal/jobtypes"
 	"github.com/processor/control-plane/internal/middleware"
 	"github.com/processor/control-plane/internal/web"
 	"github.com/processor/control-plane/internal/webhooks"
@@ -122,7 +123,19 @@ func main() {
 	// Initialize API
 	api := httpapi.NewAPI(authService, jobsService, webhookService, emailService, workerService, cfg.WorkerToken)
 	api.SetWorkerAuth(cfg.WorkerAuth)
+	api.SetCell(cfg.Cell)
 	log.Printf("Worker authentication: %s", cfg.WorkerAuth)
+
+	// Typed job contracts (optional). A file that does not load stops the server: a typo must
+	// not silently turn the checks off.
+	jobTypes, err := jobtypes.Load(cfg.JobTypesFile, cfg.JobTypesStrict)
+	if err != nil {
+		log.Fatalf("Job types: %v", err)
+	}
+	api.SetJobTypes(jobTypes)
+	if n := len(jobTypes.Types()); n > 0 || cfg.JobTypesStrict {
+		log.Printf("Job types: %d registered (strict: %v)", n, cfg.JobTypesStrict)
+	}
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService)
@@ -237,6 +250,8 @@ func main() {
 
 	// Health endpoint (no auth)
 	mux.HandleFunc("/api/v1/health", api.Health)
+	mux.HandleFunc("/v1/health", api.HealthV1) // Autonomy health contract (liveness)
+	mux.HandleFunc("/v1/ready", api.ReadyV1)   // Autonomy health contract (readiness)
 
 	// API endpoints (require auth)
 	mux.Handle("/api/v1/me", authMiddleware.APIAuth(http.HandlerFunc(api.Me)))

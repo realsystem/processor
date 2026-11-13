@@ -12,6 +12,7 @@ import (
 	"github.com/processor/control-plane/internal/auth"
 	"github.com/processor/control-plane/internal/email"
 	"github.com/processor/control-plane/internal/jobs"
+	"github.com/processor/control-plane/internal/jobtypes"
 	"github.com/processor/control-plane/internal/middleware"
 	"github.com/processor/control-plane/internal/webhooks"
 	"github.com/processor/control-plane/internal/workers"
@@ -26,7 +27,13 @@ type API struct {
 	workerService  *workers.Service
 	workerToken    string
 	workerAuth     string
+	cell           string
+	jobTypes       *jobtypes.Registry // optional typed contracts (J3); nil: every type is untyped
 }
+
+// SetJobTypes sets the registry of typed job contracts (J3). Nil, the default, leaves every
+// job type untyped, as before.
+func (api *API) SetJobTypes(r *jobtypes.Registry) { api.jobTypes = r }
 
 // NewAPI creates a new API handler
 func NewAPI(
@@ -89,6 +96,7 @@ func (api *API) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		JobType          string                 `json:"job_type"`
+		JobTypeVersion   string                 `json:"job_type_version"`
 		InputMetadata    map[string]interface{} `json:"input_metadata"`
 		PriorityWeight   int                    `json:"priority_weight"`
 		MaxAttempts      int                    `json:"max_attempts"`
@@ -131,7 +139,26 @@ func (api *API) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, existing, err := api.jobsService.CreateWithOptions(user.ID, req.JobType, req.InputMetadata, opts)
+	// typed contracts (J3): "name", "name@1.2" or a separate job_type_version; unlisted types
+	// stay untyped ("0") unless the registry is strict
+	jobType, version, contract, err := api.jobTypes.Resolve(req.JobType, req.JobTypeVersion)
+	if err != nil {
+		code := "unknown_job_type"
+		if errors.Is(err, jobtypes.ErrUnknownVersion) {
+			code = "unknown_job_type_version"
+		}
+		writeError(w, http.StatusBadRequest, code, err.Error())
+		return
+	}
+	if err := contract.CheckInput(req.InputMetadata); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_input", err.Error())
+		return
+	}
+	if version != jobtypes.Untyped {
+		opts.JobTypeVersion = version
+	}
+
+	job, existing, err := api.jobsService.CreateWithOptions(user.ID, jobType, req.InputMetadata, opts)
 	if errors.Is(err, jobs.ErrIdempotencyConflict) {
 		writeError(w, http.StatusConflict, "idempotency_conflict", err.Error())
 		return
@@ -494,6 +521,7 @@ func (api *API) WorkerPoll(w http.ResponseWriter, r *http.Request) {
 			"job": map[string]interface{}{
 				"id":               job.ID,
 				"job_type":         job.JobType,
+				"job_type_version": jobs.VersionOf(job),
 				"input_metadata":   job.InputMetadata,
 				"max_attempts":     job.MaxAttempts,
 				"attempt_count":    job.AttemptCount,
@@ -608,6 +636,19 @@ func (api *API) WorkerCompleteJob(w http.ResponseWriter, r *http.Request) {
 	}
 	if !sameWorker(w, signedID, req.WorkerID) {
 		return
+	}
+
+	// a result that breaks the job type's contract is a failure of the attempt, not a success
+	if job, gerr := api.jobsService.Get(jobID); gerr == nil && api.jobTypes != nil {
+		if rerr := api.jobTypes.Lookup(job.JobType, jobs.VersionOf(job)).CheckResult(req.ResultMetadata); rerr != nil {
+			if ferr := api.jobsService.Fail(jobID, req.WorkerID, rerr.Error(), true); ferr != nil {
+				writeError(w, http.StatusBadRequest, "invalid_request", ferr.Error())
+				return
+			}
+			api.workerService.UpdateCurrentJob(req.WorkerID, sql.NullString{})
+			writeError(w, http.StatusUnprocessableEntity, "invalid_result", rerr.Error())
+			return
+		}
 	}
 
 	err := api.jobsService.Complete(jobID, req.WorkerID, req.ResultMetadata)
@@ -736,27 +777,28 @@ func (api *API) sendNotifications(jobID, eventType string) {
 
 func formatJob(job *jobs.Job) map[string]interface{} {
 	return map[string]interface{}{
-		"id":              job.ID,
-		"user_id":         job.UserID,
-		"job_type":        job.JobType,
-		"status":          job.Status,
-		"priority_weight": job.PriorityWeight,
-		"input_metadata":  job.InputMetadata,
-		"result_metadata": job.ResultMetadata,
-		"error_text":      formatNullString(job.ErrorText),
-		"created_at":      job.CreatedAt.Format(time.RFC3339),
-		"updated_at":      job.UpdatedAt.Format(time.RFC3339),
-		"queued_at":       formatNullTime(job.QueuedAt),
-		"started_at":      formatNullTime(job.StartedAt),
-		"completed_at":    formatNullTime(job.CompletedAt),
-		"worker_id":       formatNullString(job.WorkerID),
-		"attempt_count":   job.AttemptCount,
-		"max_attempts":    job.MaxAttempts,
-		"idempotency_key": formatNullString(job.IdempotencyKey),
-		"trace_parent":    formatNullString(job.TraceParent),
-		"correlation_id":  formatNullString(job.CorrelationID),
-		"sensitive":       job.Sensitive,
-		"purged_at":       formatNullTime(job.PurgedAt),
+		"id":               job.ID,
+		"user_id":          job.UserID,
+		"job_type":         job.JobType,
+		"job_type_version": jobs.VersionOf(job),
+		"status":           job.Status,
+		"priority_weight":  job.PriorityWeight,
+		"input_metadata":   job.InputMetadata,
+		"result_metadata":  job.ResultMetadata,
+		"error_text":       formatNullString(job.ErrorText),
+		"created_at":       job.CreatedAt.Format(time.RFC3339),
+		"updated_at":       job.UpdatedAt.Format(time.RFC3339),
+		"queued_at":        formatNullTime(job.QueuedAt),
+		"started_at":       formatNullTime(job.StartedAt),
+		"completed_at":     formatNullTime(job.CompletedAt),
+		"worker_id":        formatNullString(job.WorkerID),
+		"attempt_count":    job.AttemptCount,
+		"max_attempts":     job.MaxAttempts,
+		"idempotency_key":  formatNullString(job.IdempotencyKey),
+		"trace_parent":     formatNullString(job.TraceParent),
+		"correlation_id":   formatNullString(job.CorrelationID),
+		"sensitive":        job.Sensitive,
+		"purged_at":        formatNullTime(job.PurgedAt),
 	}
 }
 
