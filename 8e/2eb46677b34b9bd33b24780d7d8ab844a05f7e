@@ -1,0 +1,304 @@
+.env.example
+  h_5cc5edf0cd634d 1-25
+.github/workflows/ci.yml
+  h_5cc5edf0cd634d 1-115
+.github/workflows/images.yml
+  h_5cc5edf0cd634d 1-46
+.github/workflows/lab.yml
+  h_5cc5edf0cd634d 1-93
+.gitignore
+  h_5cc5edf0cd634d 1-51
+.gitleaks.toml
+  h_5cc5edf0cd634d 1-16
+.gitleaksignore
+  h_5cc5edf0cd634d 1-9
+Makefile
+  h_5cc5edf0cd634d 1-322
+README.md
+  h_5cc5edf0cd634d 1-111
+autonomy.manifest.json
+  h_5cc5edf0cd634d 1-45
+control-plane/.env.example
+  h_5cc5edf0cd634d 1-27
+control-plane/Dockerfile
+  h_5cc5edf0cd634d 1-52
+control-plane/IMPLEMENTATION_CHECKLIST.md
+  h_5cc5edf0cd634d 1-129
+control-plane/Makefile
+  h_5cc5edf0cd634d 1-59
+control-plane/QUICKSTART_WEB_UI.md
+  h_5cc5edf0cd634d 1-255
+control-plane/UI_REFERENCE.md
+  h_5cc5edf0cd634d 1-488
+control-plane/WEB_UI_IMPLEMENTATION.md
+  h_5cc5edf0cd634d 1-242
+control-plane/WEB_UI_SUMMARY.md
+  h_5cc5edf0cd634d 1-395
+control-plane/cmd/server/main.go
+  h_5cc5edf0cd634d 1-461
+control-plane/go.mod
+  h_5cc5edf0cd634d 1-8
+control-plane/go.sum
+  h_5cc5edf0cd634d 1-4
+control-plane/internal/auth/auth.go
+  h_5cc5edf0cd634d 1-423
+control-plane/internal/auth/auth_test.go
+  h_5cc5edf0cd634d 1-384
+control-plane/internal/config/config.go
+  h_5cc5edf0cd634d 1-159
+control-plane/internal/config/config_test.go
+  h_5cc5edf0cd634d 1-45
+control-plane/internal/db/db.go
+  h_5cc5edf0cd634d 1-114
+control-plane/internal/db/migrations/001_initial_schema.sql
+  h_5cc5edf0cd634d 1-198
+control-plane/internal/db/migrations/002_jobs_options_and_worker_keys.sql
+  h_5cc5edf0cd634d 1-16
+control-plane/internal/db/migrations/003_job_type_version.sql
+  h_5cc5edf0cd634d 1-3
+control-plane/internal/db/util.go
+  h_5cc5edf0cd634d 1-42
+control-plane/internal/email/email.go
+  h_5cc5edf0cd634d 1-323
+control-plane/internal/httpapi/api.go
+  h_5cc5edf0cd634d 1-839
+control-plane/internal/httpapi/api_test.go
+  h_5cc5edf0cd634d 1-236
+control-plane/internal/httpapi/health.go
+  h_5cc5edf0cd634d 1-67
+control-plane/internal/httpapi/health_test.go
+  h_5cc5edf0cd634d 1-68
+control-plane/internal/httpapi/jobsapi.go
+  h_5cc5edf0cd634d 1-180
+control-plane/internal/httpapi/jobtypes_test.go
+  h_5cc5edf0cd634d 1-172
+control-plane/internal/httpapi/signature_vector_test.go
+  h_5cc5edf0cd634d 1-25
+control-plane/internal/httpapi/workerauth.go
+  h_5cc5edf0cd634d 1-114
+control-plane/internal/jobs/jobs.go
+  h_5cc5edf0cd634d 1-585
+control-plane/internal/jobs/jobs_test.go
+  h_5cc5edf0cd634d 1-542
+control-plane/internal/jobs/options.go
+  h_5cc5edf0cd634d 1-314
+control-plane/internal/jobs/options_test.go
+  h_5cc5edf0cd634d 1-170
+control-plane/internal/jobtypes/registry.go
+  h_5cc5edf0cd634d 1-224
+control-plane/internal/jobtypes/registry_test.go
+  h_5cc5edf0cd634d 1-192
+control-plane/internal/jobtypes/schema.go
+  h_5cc5edf0cd634d 1-293
+control-plane/internal/middleware/auth.go
+  h_5cc5edf0cd634d 1-121
+control-plane/internal/middleware/logging.go
+  h_5cc5edf0cd634d 1-31
+control-plane/internal/middleware/ratelimit.go
+  h_5cc5edf0cd634d 1-175
+control-plane/internal/web/handlers.go
+  h_5cc5edf0cd634d 1-788
+control-plane/internal/web/helpers.go
+  h_5cc5edf0cd634d 1-388
+control-plane/internal/webhooks/webhooks.go
+  h_5cc5edf0cd634d 1-367
+control-plane/internal/workers/workers.go
+  h_5cc5edf0cd634d 1-313
+control-plane/nginx.conf.example
+  h_5cc5edf0cd634d 1-104
+control-plane/scripts/README.md
+  h_5cc5edf0cd634d 1-116
+control-plane/scripts/create-admin.go
+  h_5cc5edf0cd634d 1-76
+control-plane/scripts/create-api-key.go
+  h_5cc5edf0cd634d 1-110
+control-plane/scripts/create-api-key.sh
+  h_5cc5edf0cd634d 1-68
+control-plane/scripts/register-worker.go
+  h_5cc5edf0cd634d 1-70
+control-plane/static/css/main.css
+  h_5cc5edf0cd634d 1-622
+control-plane/static/js/main.js
+  h_5cc5edf0cd634d 1-71
+control-plane/systemd/processor-control-plane.service
+  h_5cc5edf0cd634d 1-31
+control-plane/templates/admin/dashboard.html
+  h_5cc5edf0cd634d 1-71
+control-plane/templates/admin/jobs.html
+  h_5cc5edf0cd634d 1-86
+control-plane/templates/admin/users.html
+  h_5cc5edf0cd634d 1-64
+control-plane/templates/admin/workers.html
+  h_5cc5edf0cd634d 1-68
+control-plane/templates/api-keys/list.html
+  h_5cc5edf0cd634d 1-108
+control-plane/templates/base.html
+  h_5cc5edf0cd634d 1-20
+control-plane/templates/dashboard.html
+  h_5cc5edf0cd634d 1-130
+control-plane/templates/jobs/detail.html
+  h_5cc5edf0cd634d 1-167
+control-plane/templates/jobs/list.html
+  h_5cc5edf0cd634d 1-89
+control-plane/templates/jobs/new.html
+  h_5cc5edf0cd634d 1-154
+control-plane/templates/login.html
+  h_5cc5edf0cd634d 1-47
+control-plane/templates/partials/flash.html
+  h_5cc5edf0cd634d 1-12
+control-plane/templates/partials/header.html
+  h_5cc5edf0cd634d 1-33
+control-plane/templates/profile.html
+  h_5cc5edf0cd634d 1-69
+control-plane/templates/register.html
+  h_5cc5edf0cd634d 1-54
+control-plane/templates/webhooks/list.html
+  h_5cc5edf0cd634d 1-131
+data-plane/.env.example
+  h_5cc5edf0cd634d 1-19
+data-plane/Dockerfile
+  h_5cc5edf0cd634d 1-37
+data-plane/Makefile
+  h_5cc5edf0cd634d 1-49
+data-plane/cmd/worker/main.go
+  h_5cc5edf0cd634d 1-217
+data-plane/go.mod
+  h_5cc5edf0cd634d 1-7
+data-plane/go.sum
+  h_5cc5edf0cd634d 1
+data-plane/internal/config/config.go
+  h_5cc5edf0cd634d 1-110
+data-plane/internal/controlclient/client.go
+  h_5cc5edf0cd634d 1-230
+data-plane/internal/controlclient/client_test.go
+  h_5cc5edf0cd634d 1-54
+data-plane/internal/controlclient/signature_vector_test.go
+  h_5cc5edf0cd634d 1-25
+data-plane/internal/executor/executor.go
+  h_5cc5edf0cd634d 1-243
+data-plane/internal/executor/executor_test.go
+  h_5cc5edf0cd634d 1-339
+data-plane/internal/executor/llmchat.go
+  h_5cc5edf0cd634d 1-243
+data-plane/internal/executor/llmchat_test.go
+  h_5cc5edf0cd634d 1-134
+data-plane/internal/identity/identity.go
+  h_5cc5edf0cd634d 1-59
+data-plane/internal/identity/identity_test.go
+  h_5cc5edf0cd634d 1-30
+data-plane/scripts/setup-env.sh
+  h_5cc5edf0cd634d 1-64
+data-plane/systemd/processor-worker.service
+  h_5cc5edf0cd634d 1-18
+docker-compose.yml
+  h_5cc5edf0cd634d 1-119
+docs/CONFIGURATION.md
+  h_5cc5edf0cd634d 1-187
+docs/EMAIL_SETUP.md
+  h_5cc5edf0cd634d 1-123
+docs/IMPLEMENTATION_SUMMARY.md
+  h_5cc5edf0cd634d 1-426
+docs/LOCAL_WORKER_TO_VPS.md
+  h_5cc5edf0cd634d 1-274
+docs/OLLAMA_SETUP.md
+  h_5cc5edf0cd634d 1-373
+docs/PRODUCTION_READINESS.md
+  h_5cc5edf0cd634d 1-402
+docs/QUICKSTART.md
+  h_5cc5edf0cd634d 1-666
+docs/TEST_WEB_UI.md
+  h_5cc5edf0cd634d 1-241
+docs/USER_MANAGEMENT.md
+  h_5cc5edf0cd634d 1-251
+docs/VPS_DEPLOYMENT.md
+  h_5cc5edf0cd634d 1-329
+docs/WINDOWS_WORKER_SETUP.md
+  h_5cc5edf0cd634d 1-278
+docs/api.md
+  h_5cc5edf0cd634d 1-666
+docs/architecture.md
+  h_5cc5edf0cd634d 1-401
+docs/deployment.md
+  h_5cc5edf0cd634d 1-866
+docs/development.md
+  h_5cc5edf0cd634d 1-513
+docs/docker-local.md
+  h_5cc5edf0cd634d 1-733
+docs/job-options.md
+  h_5cc5edf0cd634d 1-91
+docs/job-types.example.json
+  h_5cc5edf0cd634d 1-39
+docs/job-types.md
+  h_5cc5edf0cd634d 1-63
+docs/operations.md
+  h_5cc5edf0cd634d 1-757
+docs/private-network.md
+  h_5cc5edf0cd634d 1-48
+docs/review-report.md
+  h_5cc5edf0cd634d 1-769
+docs/security.md
+  h_5cc5edf0cd634d 1-526
+docs/testing.md
+  h_5cc5edf0cd634d 1-425
+lab/compose.yml
+  h_5cc5edf0cd634d 1-70
+lab/lab.sh
+  h_5cc5edf0cd634d 1-134
+lab/mock-llm/Dockerfile
+  h_5cc5edf0cd634d 1-8
+lab/mock-llm/rules.json
+  h_5cc5edf0cd634d 1-9
+lab/mock-llm/server.py
+  h_5cc5edf0cd634d 1-205
+lab/mock-llm/test_server.py
+  h_5cc5edf0cd634d 1-89
+scripts/build-linux-binary.sh
+  h_5cc5edf0cd634d 1-21
+scripts/create-api-key-docker.sh
+  h_5cc5edf0cd634d 1-58
+scripts/create-user.sh
+  h_5cc5edf0cd634d 1-102
+scripts/deploy-vps-build-on-server.sh
+  h_5cc5edf0cd634d 1-181
+scripts/deploy-vps-complete.sh
+  h_5cc5edf0cd634d 1-363
+scripts/deploy-vps-interactive.sh
+  h_5cc5edf0cd634d 1-212
+scripts/deploy-vps.sh
+  h_5cc5edf0cd634d 1-171
+scripts/docker-bootstrap-worker.sh
+  h_5cc5edf0cd634d 1-17
+scripts/manage.sh
+  h_5cc5edf0cd634d 1-105
+scripts/register-windows-worker.sh
+  h_5cc5edf0cd634d 1-47
+scripts/run-local-worker-to-vps.sh
+  h_5cc5edf0cd634d 1-167
+scripts/setup-windows-worker.ps1
+  h_5cc5edf0cd634d 1-156
+scripts/sync-worker-token.sh
+  h_5cc5edf0cd634d 1-50
+scripts/test-ollama.sh
+  h_5cc5edf0cd634d 1-123
+scripts/test-vps-job.sh
+  h_5cc5edf0cd634d 1-152
+scripts/vps-create-api-key.sh
+  h_5cc5edf0cd634d 1-59
+tests/e2e_job.sh
+  h_5cc5edf0cd634d 1-31
+tests/integration_test.sh
+  h_5cc5edf0cd634d 1-204
+tests/smoke_test.sh
+  h_5cc5edf0cd634d 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "8e2eb46677b34b9bd33b24780d7d8ab844a05f7e",
+  "prompts": {},
+  "humans": {
+    "h_5cc5edf0cd634d": {
+      "author": "Stan Egorov <segorov@paloaltonetworks.com>"
+    }
+  }
+}
