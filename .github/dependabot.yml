@@ -15,11 +15,19 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      # Newer releases need a Go toolchain newer than the golang:1.25 image the Dockerfiles use.
+      - dependency-name: "golang.org/x/crypto"
+        update-types: ["version-update:semver-minor"]
   - package-ecosystem: "gomod"
     directory: "/data-plane"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      # Newer releases need a Go toolchain newer than the golang:1.25 image the Dockerfiles use.
+      - dependency-name: "golang.org/x/time"
+        update-types: ["version-update:semver-minor"]
   - package-ecosystem: "docker"
     directory: "/control-plane"
     schedule:
