@@ -7,7 +7,8 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Configuration
-$VPS_IP = "66.179.241.224"
+$VPS_IP = $env:VPS_IP
+if (-not $VPS_IP) { throw "Set $env:VPS_IP to your server's address" }
 $VPS_URL = "http://${VPS_IP}:8080"
 $WORKER_ID = "worker_windows_gpu"
 

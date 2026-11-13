@@ -4,7 +4,8 @@ set -e
 # Interactive VPS Deployment
 # This script will prompt for password when needed
 
-VPS_IP="66.179.241.224"
+VPS_IP="${1:-${VPS_IP:-}}"
+[ -n "$VPS_IP" ] || { echo "usage: $0 <server-ip>   (or VPS_IP=<server-ip>)" >&2; exit 2; }
 VPS_USER="root"
 
 echo "🚀 Deploying Processor Control Plane to VPS"
@@ -62,6 +63,7 @@ cp -r static/* /opt/processor/static/ 2>/dev/null || true
 # Generate secrets
 SESSION_SECRET=$(openssl rand -hex 32)
 WORKER_TOKEN=$(openssl rand -hex 32)
+ADMIN_PASSWORD=$(openssl rand -hex 12)
 
 # Create environment file
 echo "Creating configuration..."
@@ -72,12 +74,14 @@ WORKER_TOKEN=$WORKER_TOKEN
 HTTP_PORT=8080
 ENV=production
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=$ADMIN_PASSWORD
 LOG_LEVEL=info
 LEASE_DURATION=5m
 EOF
 
 echo "Worker Token: $WORKER_TOKEN" > /opt/processor/WORKER_TOKEN.txt
+
+( umask 077; echo "$ADMIN_PASSWORD" > /opt/processor/ADMIN_PASSWORD.txt )
 echo "⚠️  SAVE THIS: Worker token written to /opt/processor/WORKER_TOKEN.txt"
 
 # Run migrations
@@ -202,7 +206,7 @@ echo ""
 echo "5. Login to web UI:"
 echo "   http://$VPS_IP:8080"
 echo "   Email: admin@example.com"
-echo "   Password: admin123"
+echo "   Password: ssh $VPS_USER@$VPS_IP 'cat /opt/processor/ADMIN_PASSWORD.txt'"
 echo ""
 echo "⚠️  IMPORTANT: Change admin password after first login!"
 echo ""

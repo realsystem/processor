@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -101,6 +102,15 @@ func (c *Config) Validate() error {
 		}
 		if c.WorkerToken != "" && len(c.WorkerToken) < 32 {
 			return fmt.Errorf("WORKER_TOKEN must be at least 32 characters")
+		}
+		// the development defaults are in the public repository: never acceptable in production
+		for name, v := range map[string]string{"SESSION_SECRET": c.SessionSecret, "WORKER_TOKEN": c.WorkerToken} {
+			if strings.HasPrefix(v, "docker-dev-") {
+				return fmt.Errorf("%s is a development default; generate a real one", name)
+			}
+		}
+		if c.AdminPassword == "admin123" {
+			return fmt.Errorf("ADMIN_PASSWORD is a development default; set a real one")
 		}
 	}
 

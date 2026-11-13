@@ -7,15 +7,15 @@ Creates an admin user in the database. Use this for initial setup or if the auto
 ### Usage
 
 ```bash
-go run scripts/create-admin.go [-email <email>] [-password <password>] [-db <db-path>]
+go run scripts/create-admin.go -password <password> [-email <email>] [-db <db-path>]
 ```
 
 ### Examples
 
-**Create admin with default credentials:**
+**Create a local development admin** (the password is required; there is no default):
 ```bash
-go run scripts/create-admin.go
-# Creates: admin@example.com / admin123
+go run scripts/create-admin.go -password admin123
+# Creates: admin@example.com / admin123 (development only; production refuses this password)
 ```
 
 **Create admin with custom credentials:**

@@ -16,9 +16,12 @@ import (
 
 func main() {
 	email := flag.String("email", "admin@example.com", "Admin email")
-	password := flag.String("password", "admin123", "Admin password")
+	password := flag.String("password", "", "Admin password (required)")
 	dbPath := flag.String("db", "./processor.db", "Database path")
 	flag.Parse()
+	if *password == "" {
+		log.Fatal("-password is required")
+	}
 
 	// Open database
 	db, err := sql.Open("sqlite3", *dbPath)

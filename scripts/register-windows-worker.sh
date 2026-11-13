@@ -3,7 +3,7 @@ set -e
 
 # Register Windows GPU worker on VPS
 
-VPS_IP="66.179.241.224"
+VPS_IP="${VPS_IP:?set VPS_IP to your server address}"
 WORKER_ID="worker_windows_gpu"
 WORKER_NAME="windows-gpu-worker"
 CAPABILITIES="noop,sleep,echo_metadata,ollama_chat"

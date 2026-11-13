@@ -72,13 +72,13 @@ Expected output:
 
 Fetch worker token from VPS:
 ```powershell
-$VPS_URL = "http://66.179.241.224:8080"
+$VPS_URL = "http://<your-server-ip>:8080"
 Invoke-RestMethod -Uri "$VPS_URL/worker/config" | ConvertTo-Json
 ```
 
 Or manually retrieve from VPS:
 ```bash
-ssh root@66.179.241.224
+ssh root@<your-server-ip>
 cat /opt/processor/.env | grep WORKER_TOKEN
 ```
 
@@ -90,7 +90,7 @@ Create `.env.windows` in the repository root:
 # Worker Configuration
 WORKER_ID=worker_windows_gpu
 WORKER_TOKEN=dev-worker-token-change-in-production  # Use actual token from VPS
-CONTROL_PLANE_URL=http://66.179.241.224:8080
+CONTROL_PLANE_URL=http://<your-server-ip>:8080
 POLL_INTERVAL=5s
 WORKER_CAPABILITIES=noop,sleep,echo_metadata,ollama_chat
 
@@ -112,7 +112,7 @@ docker build -t processor-worker:latest -f data-plane/Dockerfile ./data-plane
 SSH to VPS and register the new worker:
 
 ```bash
-ssh root@66.179.241.224
+ssh root@<your-server-ip>
 cd /opt/processor
 sqlite3 data/processor.db "INSERT INTO workers (id, name, capabilities, status) VALUES ('worker_windows_gpu', 'windows-gpu-worker', 'noop,sleep,echo_metadata,ollama_chat', 'active');"
 ```
@@ -144,7 +144,7 @@ Expected output:
 Loading environment from .env...
 Starting Processor Data Plane Worker
 Worker ID: worker_windows_gpu
-Control Plane: http://66.179.241.224:8080
+Control Plane: http://<your-server-ip>:8080
 Poll Interval: 5s
 Capabilities: [noop sleep echo_metadata ollama_chat]
 Worker started, polling for jobs...
@@ -156,7 +156,7 @@ Submit a test job to verify GPU acceleration:
 
 ```powershell
 $API_KEY = "pk_your_api_key_here"
-$VPS_URL = "http://66.179.241.224:8080"
+$VPS_URL = "http://<your-server-ip>:8080"
 
 Invoke-RestMethod -Method Post -Uri "$VPS_URL/api/v1/jobs" `
   -Headers @{"Authorization"="Bearer $API_KEY"; "Content-Type"="application/json"} `
@@ -217,7 +217,7 @@ Check firewall:
 
 Test connectivity:
 ```powershell
-Test-NetConnection -ComputerName 66.179.241.224 -Port 8080
+Test-NetConnection -ComputerName <your-server-ip> -Port 8080
 ```
 
 ### "No GPU acceleration"

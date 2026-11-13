@@ -3,7 +3,7 @@ set -e
 
 # Run local worker (Docker) connected to VPS control-plane
 
-VPS_IP="66.179.241.224"
+VPS_IP="${VPS_IP:?set VPS_IP to your server address}"
 VPS_USER="root"
 CONTROL_PLANE_URL="http://$VPS_IP:8080"
 

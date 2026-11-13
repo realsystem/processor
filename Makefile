@@ -162,7 +162,7 @@ seed-dev:
 		bash scripts/seed-dev.sh; \
 	else \
 		echo "Creating admin user..."; \
-		cd control-plane && go run scripts/create-admin.go; \
+		cd control-plane && go run scripts/create-admin.go -password admin123; \
 	fi
 
 create-user:

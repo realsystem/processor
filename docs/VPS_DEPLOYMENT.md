@@ -6,7 +6,7 @@ Deploy the Processor control-plane to a VPS server.
 
 ```bash
 # From project root
-./scripts/deploy-vps.sh 66.179.241.224 root
+./scripts/deploy-vps.sh <your-server-ip> root
 ```
 
 This will:
@@ -32,16 +32,16 @@ CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o processor-control-plane-linux 
 
 ```bash
 # Upload binary and files
-scp processor-control-plane-linux root@66.179.241.224:/tmp/
-scp -r migrations root@66.179.241.224:/tmp/
-scp -r internal/server/templates root@66.179.241.224:/tmp/
-scp -r internal/server/static root@66.179.241.224:/tmp/
+scp processor-control-plane-linux root@<your-server-ip>:/tmp/
+scp -r migrations root@<your-server-ip>:/tmp/
+scp -r internal/server/templates root@<your-server-ip>:/tmp/
+scp -r internal/server/static root@<your-server-ip>:/tmp/
 ```
 
 ### Step 3: SSH into VPS
 
 ```bash
-ssh root@66.179.241.224
+ssh root@<your-server-ip>
 ```
 
 ### Step 4: Install on VPS
@@ -133,7 +133,7 @@ ufw status
 curl http://localhost:8080/api/v1/health
 
 # From your machine
-curl http://66.179.241.224:8080/api/v1/health
+curl http://<your-server-ip>:8080/api/v1/health
 ```
 
 Expected response:
@@ -155,7 +155,7 @@ Expected response:
 SSH into VPS and create an API key:
 
 ```bash
-ssh root@66.179.241.224
+ssh root@<your-server-ip>
 
 # On VPS
 cd /opt/processor
@@ -207,7 +207,7 @@ chmod +x create-api-key.sh
 ### Configure SMTP (Optional)
 
 ```bash
-ssh root@66.179.241.224
+ssh root@<your-server-ip>
 
 # Edit environment
 nano /opt/processor/.env
@@ -229,22 +229,22 @@ systemctl restart processor-control-plane
 
 ```bash
 # Real-time logs
-ssh root@66.179.241.224 'journalctl -u processor-control-plane -f'
+ssh root@<your-server-ip> 'journalctl -u processor-control-plane -f'
 
 # Last 100 lines
-ssh root@66.179.241.224 'journalctl -u processor-control-plane -n 100'
+ssh root@<your-server-ip> 'journalctl -u processor-control-plane -n 100'
 ```
 
 ### Restart Service
 
 ```bash
-ssh root@66.179.241.224 'systemctl restart processor-control-plane'
+ssh root@<your-server-ip> 'systemctl restart processor-control-plane'
 ```
 
 ### Check Status
 
 ```bash
-ssh root@66.179.241.224 'systemctl status processor-control-plane'
+ssh root@<your-server-ip> 'systemctl status processor-control-plane'
 ```
 
 ### Update Deployment
@@ -255,15 +255,15 @@ cd control-plane
 CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o processor-control-plane-linux ./cmd/server
 
 # Upload and restart
-scp processor-control-plane-linux root@66.179.241.224:/opt/processor/bin/server
-ssh root@66.179.241.224 'systemctl restart processor-control-plane'
+scp processor-control-plane-linux root@<your-server-ip>:/opt/processor/bin/server
+ssh root@<your-server-ip> 'systemctl restart processor-control-plane'
 ```
 
 ### Backup Database
 
 ```bash
 # Download database backup
-scp root@66.179.241.224:/opt/processor/data/processor.db ./processor-backup-$(date +%Y%m%d).db
+scp root@<your-server-ip>:/opt/processor/data/processor.db ./processor-backup-$(date +%Y%m%d).db
 ```
 
 ## Troubleshooting

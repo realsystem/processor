@@ -4,7 +4,7 @@ set -e
 # Deploy control-plane to VPS
 # Usage: ./scripts/deploy-vps.sh <vps-ip> <vps-user>
 
-VPS_IP="${1:-66.179.241.224}"
+VPS_IP="${1:?usage: $0 <server-ip> [user]}"
 VPS_USER="${2:-root}"
 SERVICE_NAME="processor-control-plane"
 

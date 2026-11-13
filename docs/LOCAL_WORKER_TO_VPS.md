@@ -53,10 +53,10 @@ If you don't have an API key yet:
 
 ```bash
 # Create on VPS
-ssh root@66.179.241.224 '/opt/processor/create-key.sh admin@example.com "My Key"'
+ssh root@<your-server-ip> '/opt/processor/create-key.sh admin@example.com "My Key"'
 
 # Or use web UI
-open http://66.179.241.224:8080
+open http://<your-server-ip>:8080
 # Login → Profile → API Keys → Create
 ```
 
@@ -89,7 +89,7 @@ source ~/.processor-vps-api-key
 
 ```bash
 # Submit an echo job
-curl -X POST http://66.179.241.224:8080/api/v1/jobs \
+curl -X POST http://<your-server-ip>:8080/api/v1/jobs \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -100,7 +100,7 @@ curl -X POST http://66.179.241.224:8080/api/v1/jobs \
   }'
 
 # Submit an Ollama job
-curl -X POST http://66.179.241.224:8080/api/v1/jobs \
+curl -X POST http://<your-server-ip>:8080/api/v1/jobs \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -149,8 +149,8 @@ docker build -t processor-worker-local ./data-plane
 docker run -d \
   --name processor-worker-local \
   --restart unless-stopped \
-  -e CONTROL_PLANE_URL="http://66.179.241.224:8080" \
-  -e WORKER_TOKEN="$(ssh root@66.179.241.224 'cat /opt/processor/WORKER_TOKEN.txt')" \
+  -e CONTROL_PLANE_URL="http://<your-server-ip>:8080" \
+  -e WORKER_TOKEN="$(ssh root@<your-server-ip> 'cat /opt/processor/WORKER_TOKEN.txt')" \
   -e WORKER_ID="worker_local_$(hostname -s)" \
   -e WORKER_NAME="local-mac-worker" \
   -e POLL_INTERVAL="5s" \
@@ -166,13 +166,13 @@ docker run -d \
 
 ```bash
 # Test VPS is accessible
-curl http://66.179.241.224:8080/api/v1/health
+curl http://<your-server-ip>:8080/api/v1/health
 
 # Check worker logs
 docker logs processor-worker-local --tail 50
 
 # Verify worker token
-ssh root@66.179.241.224 'cat /opt/processor/WORKER_TOKEN.txt'
+ssh root@<your-server-ip> 'cat /opt/processor/WORKER_TOKEN.txt'
 ```
 
 ### Worker can't access Ollama
@@ -197,11 +197,11 @@ docker exec processor-worker-local curl http://host.docker.internal:11434/api/ta
 docker logs processor-worker-local | grep Capabilities
 
 # Verify worker is registered in VPS
-curl http://66.179.241.224:8080/api/v1/admin/workers \
+curl http://<your-server-ip>:8080/api/v1/admin/workers \
   -H "Authorization: Bearer $API_KEY"
 
 # Check job queue
-curl http://66.179.241.224:8080/api/v1/jobs?status=queued \
+curl http://<your-server-ip>:8080/api/v1/jobs?status=queued \
   -H "Authorization: Bearer $API_KEY"
 ```
 
@@ -210,7 +210,7 @@ curl http://66.179.241.224:8080/api/v1/jobs?status=queued \
 ```bash
 # Verify API key works
 curl -H "Authorization: Bearer $API_KEY" \
-  http://66.179.241.224:8080/api/v1/me
+  http://<your-server-ip>:8080/api/v1/me
 
 # Check worker token is correct
 docker exec processor-worker-local env | grep WORKER_TOKEN
@@ -268,7 +268,7 @@ docker run -d \
 
 ## Next Steps
 
-1. Monitor jobs in web UI: http://66.179.241.224:8080/jobs
+1. Monitor jobs in web UI: http://<your-server-ip>:8080/jobs
 2. Set up webhooks for job notifications
 3. Deploy additional workers on other machines
 4. Configure HTTPS for production (see PRODUCTION_READINESS.md)

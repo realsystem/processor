@@ -3,7 +3,8 @@ set -e
 
 # Deploy by building on VPS (avoids cross-compilation issues)
 
-VPS_IP="66.179.241.224"
+VPS_IP="${1:-${VPS_IP:-}}"
+[ -n "$VPS_IP" ] || { echo "usage: $0 <server-ip>   (or VPS_IP=<server-ip>)" >&2; exit 2; }
 VPS_USER="root"
 
 echo "🚀 Deploying Processor Control Plane to VPS"
@@ -73,6 +74,7 @@ cp -r internal/server/static/* /opt/processor/static/ 2>/dev/null || true
 # Generate secrets
 SESSION_SECRET=$(openssl rand -hex 32)
 WORKER_TOKEN=$(openssl rand -hex 32)
+ADMIN_PASSWORD=$(openssl rand -hex 12)
 
 echo "Creating configuration..."
 cat > /opt/processor/.env <<EOF
@@ -82,13 +84,14 @@ WORKER_TOKEN=$WORKER_TOKEN
 HTTP_PORT=8080
 ENV=production
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=$ADMIN_PASSWORD
 LOG_LEVEL=info
 LEASE_DURATION=5m
 EOF
 
 # Save worker token
 echo "$WORKER_TOKEN" > /opt/processor/WORKER_TOKEN.txt
+( umask 077; echo "$ADMIN_PASSWORD" > /opt/processor/ADMIN_PASSWORD.txt )
 echo "✅ Worker token saved to /opt/processor/WORKER_TOKEN.txt"
 
 echo "Running database migrations..."
@@ -166,7 +169,7 @@ echo "Web UI: http://$VPS_IP:8080"
 echo ""
 echo "Default Login:"
 echo "  Email: admin@example.com"
-echo "  Password: admin123"
+echo "  Password: ssh $VPS_USER@$VPS_IP 'cat /opt/processor/ADMIN_PASSWORD.txt'"
 echo ""
 echo "Get Worker Token:"
 echo "  ssh $VPS_USER@$VPS_IP 'cat /opt/processor/WORKER_TOKEN.txt'"
