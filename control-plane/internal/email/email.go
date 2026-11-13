@@ -217,6 +217,15 @@ func (s *Service) markPending(notificationID string, attemptCount int, nextAttem
 	s.database.Exec(query, attemptCount, nextAttempt, notificationID)
 }
 
+// smtpTLSConfig verifies the server certificate against the system roots and the SMTP host name.
+func smtpTLSConfig(host string) (*tls.Config, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("cannot load the system certificate roots: %w", err)
+	}
+	return &tls.Config{ServerName: host, RootCAs: pool, MinVersion: tls.VersionTLS12}, nil
+}
+
 // Send implements the Provider interface for SMTPProvider
 func (p *SMTPProvider) Send(to, subject, body string) error {
 	if p.Host == "" {
@@ -238,20 +247,12 @@ func (p *SMTPProvider) Send(to, subject, body string) error {
 	}
 	defer client.Close()
 
-	// Start TLS with certificate verification
-	// NOTE: Alpine Linux + Go has issues with certificate verification even with SystemCertPool().
-	// For production, consider using a Debian-based image or a different SMTP provider with proper certs.
-	// For Gmail SMTP in development, we use InsecureSkipVerify as a workaround.
-	certPool, err := x509.SystemCertPool()
+	// Start TLS and verify the server certificate: the SMTP credentials go over this connection.
+	// (The alpine image has ca-certificates; do not turn verification off to get around a missing CA.)
+	tlsConfig, err := smtpTLSConfig(p.Host)
 	if err != nil {
-		log.Printf("Warning: Failed to load system cert pool: %v", err)
-		certPool = x509.NewCertPool()
-	}
-
-	tlsConfig := &tls.Config{
-		ServerName:         p.Host,
-		RootCAs:            certPool,
-		InsecureSkipVerify: true, // Required for Alpine + Gmail SMTP (see comment above)
+		conn.Close()
+		return err
 	}
 
 	if err = client.StartTLS(tlsConfig); err != nil {
