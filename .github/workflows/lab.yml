@@ -82,7 +82,7 @@ jobs:
           path: autonomy
           ref: main
       - name: Up (builds from the three checkouts)
-        run: autonomy/ops/lab/lab.sh up --mock-telegram
+        run: autonomy/ops/lab/lab.sh up --mock-telegram --farm
       - name: Verify every scenario
         run: autonomy/ops/lab/lab.sh verify
       - name: Logs
