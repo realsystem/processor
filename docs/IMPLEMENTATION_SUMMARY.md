@@ -401,7 +401,7 @@ cd data-plane && make test
 
 ## License
 
-Proprietary - Internal use only
+Apache License 2.0, see the LICENSE file.
 
 ## Summary
 

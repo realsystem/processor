@@ -108,4 +108,4 @@ See [docs/deployment.md](docs/deployment.md) for complete production deployment 
 
 ## License
 
-Proprietary - Internal use only
+Apache License 2.0, see [LICENSE](LICENSE).
