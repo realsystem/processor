@@ -1,9 +1,5 @@
-# Findings in history that were reviewed (2026-11-11): all are documentation examples, not
-# real keys. The example key in QUICKSTART.md (initial commit) is now pk_XXX in
-# docs/QUICKSTART.md; the old value stays only in git history.
-a997d696f42df1f67e334991ce94f8d3827fe658:IMPLEMENTATION_SUMMARY.md:curl-auth-header:282
-a997d696f42df1f67e334991ce94f8d3827fe658:IMPLEMENTATION_SUMMARY.md:curl-auth-header:292
-a997d696f42df1f67e334991ce94f8d3827fe658:QUICKSTART.md:generic-api-key:191
-a997d696f42df1f67e334991ce94f8d3827fe658:QUICKSTART.md:generic-api-key:201
-a997d696f42df1f67e334991ce94f8d3827fe658:control-plane/scripts/README.md:generic-api-key:100
-a997d696f42df1f67e334991ce94f8d3827fe658:control-plane/scripts/README.md:curl-auth-header:106
+# Findings in history that were reviewed (2026-11-13): documentation examples, not real keys.
+# The history was rewritten to a single initial commit on 2026-11-13, so these fingerprints name
+# that commit; the example in the README is now a pk_XXX placeholder, so new commits need no entry.
+342588aad74571d0c4ed20631e6efa1f2d80c10f:control-plane/scripts/README.md:generic-api-key:100
+342588aad74571d0c4ed20631e6efa1f2d80c10f:control-plane/scripts/README.md:curl-auth-header:106

@@ -97,13 +97,13 @@ The script will output the full API key. **Save it immediately** - it won't be s
 ✅ API Key created successfully!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔑 API Key: pk_1a2b3c4d5e6f7890_9876543210fedcba9876543210fedcba
+🔑 API Key: pk_XXXXXXXXXXXXXXXX_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚠️  IMPORTANT: Save this key now! It won't be shown again.
 
 Usage:
-  curl -H "Authorization: Bearer pk_1a2b3c4d5e6f7890_..." \
+  curl -H "Authorization: Bearer pk_XXXXXXXXXXXXXXXX_..." \
        http://localhost:8080/api/v1/me
 ```
 
