@@ -160,5 +160,21 @@ func (api *API) JobTypes(w http.ResponseWriter, r *http.Request) {
 		types = append(types, t)
 	}
 	sort.Strings(types)
-	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": map[string]interface{}{"job_types": types}})
+	// J3: the registered contracts; "online" says whether a worker can run the type now
+	registry := []map[string]interface{}{}
+	for _, t := range api.jobTypes.Types() {
+		registry = append(registry, map[string]interface{}{
+			"name":          t.Name,
+			"version":       t.Version,
+			"description":   t.Description,
+			"input_schema":  t.InputSchema,
+			"result_schema": t.ResultSchema,
+			"online":        seen[t.Name],
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": map[string]interface{}{
+		"job_types": types,
+		"registry":  registry,
+		"strict":    api.jobTypes.Strict(),
+	}})
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/processor/control-plane/internal/email"
 	"github.com/processor/control-plane/internal/httpapi"
 	"github.com/processor/control-plane/internal/jobs"
+	"github.com/processor/control-plane/internal/jobtypes"
 	"github.com/processor/control-plane/internal/middleware"
 	"github.com/processor/control-plane/internal/web"
 	"github.com/processor/control-plane/internal/webhooks"
@@ -123,6 +124,17 @@ func main() {
 	api := httpapi.NewAPI(authService, jobsService, webhookService, emailService, workerService, cfg.WorkerToken)
 	api.SetWorkerAuth(cfg.WorkerAuth)
 	log.Printf("Worker authentication: %s", cfg.WorkerAuth)
+
+	// Typed job contracts (optional). A file that does not load stops the server: a typo must
+	// not silently turn the checks off.
+	jobTypes, err := jobtypes.Load(cfg.JobTypesFile, cfg.JobTypesStrict)
+	if err != nil {
+		log.Fatalf("Job types: %v", err)
+	}
+	api.SetJobTypes(jobTypes)
+	if n := len(jobTypes.Types()); n > 0 || cfg.JobTypesStrict {
+		log.Printf("Job types: %d registered (strict: %v)", n, cfg.JobTypesStrict)
+	}
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService)

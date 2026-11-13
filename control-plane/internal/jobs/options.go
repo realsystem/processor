@@ -45,6 +45,10 @@ type CreateOptions struct {
 	CorrelationID    string
 	Sensitive        bool
 	RetentionSeconds int // 0: keep forever (unless Sensitive)
+
+	// JobTypeVersion is the registered version the job was submitted under (see package
+	// jobtypes); empty for the untyped contract.
+	JobTypeVersion string
 }
 
 // CreateWithOptions creates a job. With an idempotency key that was already used by this
@@ -59,7 +63,7 @@ func (s *Service) CreateWithOptions(userID, jobType string, input map[string]int
 	}
 	if o.IdempotencyKey != "" {
 		if prev, err := s.byIdempotencyKey(userID, o.IdempotencyKey); err == nil {
-			if prev.JobType != jobType {
+			if prev.JobType != jobType || versionOf(prev) != versionOrUntyped(o.JobTypeVersion) {
 				return nil, true, ErrIdempotencyConflict
 			}
 			return prev, true, nil
@@ -88,6 +92,7 @@ func (s *Service) CreateWithOptions(userID, jobType string, input map[string]int
 		MaxAttempts:      o.MaxAttempts,
 		NotifyEmail:      o.NotifyEmail,
 		NotifyWebhook:    o.NotifyWebhook,
+		JobTypeVersion:   nullString(o.JobTypeVersion),
 		IdempotencyKey:   nullString(o.IdempotencyKey),
 		TraceParent:      nullString(o.TraceParent),
 		CorrelationID:    nullString(o.CorrelationID),
@@ -97,16 +102,16 @@ func (s *Service) CreateWithOptions(userID, jobType string, input map[string]int
 	_, err = s.db.Exec(`
 		INSERT INTO jobs (id, user_id, job_type, status, priority_weight, input_metadata_json,
 			created_at, updated_at, queued_at, attempt_count, max_attempts, notify_email, notify_webhook,
-			idempotency_key, trace_parent, correlation_id, sensitive, retention_seconds)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			idempotency_key, trace_parent, correlation_id, sensitive, retention_seconds, job_type_version)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		job.ID, job.UserID, job.JobType, job.Status, job.PriorityWeight, string(inputJSON),
 		job.CreatedAt, job.UpdatedAt, job.QueuedAt, job.MaxAttempts, job.NotifyEmail, job.NotifyWebhook,
-		job.IdempotencyKey, job.TraceParent, job.CorrelationID, job.Sensitive, job.RetentionSeconds,
+		job.IdempotencyKey, job.TraceParent, job.CorrelationID, job.Sensitive, job.RetentionSeconds, job.JobTypeVersion,
 	)
 	if err != nil {
 		if o.IdempotencyKey != "" {
 			// lost a race with an identical submission: return the winner
-			if prev, perr := s.byIdempotencyKey(userID, o.IdempotencyKey); perr == nil && prev.JobType == jobType {
+			if prev, perr := s.byIdempotencyKey(userID, o.IdempotencyKey); perr == nil && prev.JobType == jobType && versionOf(prev) == versionOrUntyped(o.JobTypeVersion) {
 				return prev, true, nil
 			}
 		}
@@ -294,4 +299,16 @@ func parseSQLiteTime(s string) (time.Time, error) {
 		}
 	}
 	return time.Time{}, fmt.Errorf("unrecognized time %q", s)
+}
+
+// VersionOf is the job type version a job runs under: "0" for the untyped contract.
+func VersionOf(j *Job) string { return versionOf(j) }
+
+func versionOf(j *Job) string { return versionOrUntyped(j.JobTypeVersion.String) }
+
+func versionOrUntyped(v string) string {
+	if v == "" {
+		return "0"
+	}
+	return v
 }
