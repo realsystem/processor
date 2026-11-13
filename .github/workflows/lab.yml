@@ -76,6 +76,7 @@ jobs:
         with:
           repository: realsystem/edge_server
           path: edge_server
+          ref: lab-authority-fixes
       - uses: actions/checkout@v4
         with:
           repository: realsystem/autonomy
