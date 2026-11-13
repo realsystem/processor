@@ -29,6 +29,7 @@ type env struct {
 	jobs *jobs.Service
 	wrk  *workers.Service
 	user *auth.User
+	db   *sql.DB
 }
 
 func newEnv(t *testing.T, token, mode string) *env {
@@ -51,6 +52,7 @@ func newEnv(t *testing.T, token, mode string) *env {
 		jobs: jobs.NewService(database, 5*time.Minute),
 		wrk:  workers.NewService(database),
 		user: user,
+		db:   database,
 	}
 	e.api = NewAPI(authSvc, e.jobs, webhooks.NewService(database), email.NewService(database, email.NewLogProvider()), e.wrk, token)
 	e.api.SetWorkerAuth(mode)

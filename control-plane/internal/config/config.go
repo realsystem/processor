@@ -28,6 +28,10 @@ type Config struct {
 	JobTypesFile   string
 	JobTypesStrict bool
 
+	// Cell is the name of the Autonomy cell this instance runs on (the @cell of its component
+	// reference in /v1/health); empty is fine for a standalone install.
+	Cell string
+
 	// Environment
 	Env      string
 	LogLevel string
@@ -53,6 +57,7 @@ func Load() (*Config, error) {
 		SessionSecret:  getEnv("SESSION_SECRET", ""),
 		WorkerToken:    getEnv("WORKER_TOKEN", ""),
 		WorkerAuth:     getEnv("WORKER_AUTH", "token"),
+		Cell:           getEnv("AUTONOMY_CELL", ""),
 		JobTypesFile:   getEnv("JOB_TYPES_FILE", ""),
 		JobTypesStrict: getEnv("JOB_TYPES_STRICT", "") == "true",
 		Env:            getEnv("ENV", "development"),

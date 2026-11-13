@@ -27,6 +27,7 @@ type API struct {
 	workerService  *workers.Service
 	workerToken    string
 	workerAuth     string
+	cell           string
 	jobTypes       *jobtypes.Registry // optional typed contracts (J3); nil: every type is untyped
 }
 

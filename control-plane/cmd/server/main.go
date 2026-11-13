@@ -123,6 +123,7 @@ func main() {
 	// Initialize API
 	api := httpapi.NewAPI(authService, jobsService, webhookService, emailService, workerService, cfg.WorkerToken)
 	api.SetWorkerAuth(cfg.WorkerAuth)
+	api.SetCell(cfg.Cell)
 	log.Printf("Worker authentication: %s", cfg.WorkerAuth)
 
 	// Typed job contracts (optional). A file that does not load stops the server: a typo must
@@ -249,6 +250,8 @@ func main() {
 
 	// Health endpoint (no auth)
 	mux.HandleFunc("/api/v1/health", api.Health)
+	mux.HandleFunc("/v1/health", api.HealthV1) // Autonomy health contract (liveness)
+	mux.HandleFunc("/v1/ready", api.ReadyV1)   // Autonomy health contract (readiness)
 
 	// API endpoints (require auth)
 	mux.Handle("/api/v1/me", authMiddleware.APIAuth(http.HandlerFunc(api.Me)))
