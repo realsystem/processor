@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # weekly: catches breakage from new base images and Go toolchains
+  schedule:
+    - cron: "41 15 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manifest:
+    name: autonomy manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # the conformance kit of the Autonomy spec (main until the spec is tagged and pinned)
+      - run: pip install "autonomy-conformance @ git+https://github.com/realsystem/autonomy@main#subdirectory=spec"
+      - run: autonomy-conformance check --manifest autonomy.manifest.json --strict
+
+  go:
+    name: go ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [control-plane, data-plane]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then echo "not gofmt'ed:"; echo "$unformatted"; exit 1; fi
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+      - run: go build ./...
+
+  stack:
+    name: docker stack smoke test
+    runs-on: ubuntu-latest
+    needs: go
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start control plane and worker
+        run: docker compose up -d --build --wait control-plane
+      - name: Smoke test
+        run: bash tests/smoke_test.sh
+      - name: Start a worker and run a job end to end (shared token)
+        run: |
+          docker compose up -d worker
+          bash tests/e2e_job.sh
+      - name: Same with a signed worker (WORKER_AUTH=signature)
+        env:
+          WORKER_AUTH: signature
+          WORKER_KEY_FILE: /tmp/worker-key.pem
+        run: |
+          docker compose up -d --wait control-plane
+          docker compose up -d --force-recreate worker
+          sleep 3
+          SIGNED=1 bash tests/e2e_job.sh
+      - name: Logs
+        if: always()
+        run: docker compose logs --no-color | tail -200
+      - if: always()
+        run: docker compose down -v
+
+  shell:
+    name: shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n
+        run: for f in scripts/*.sh tests/*.sh lab/*.sh; do bash -n "$f"; done
+      - name: ShellCheck
+        run: shellcheck --severity=warning scripts/*.sh tests/*.sh lab/*.sh
+
+  workflows:
+    name: workflow lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the whole history
+      - name: Gitleaks
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.21.2
+          git --config /repo/.gitleaks.toml --redact --verbose /repo

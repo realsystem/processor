@@ -1,0 +1,108 @@
+{{define "content"}}
+<div class="page-header">
+    <div class="d-flex justify-between align-items-center">
+        <div>
+            <h1 class="page-title">API Keys</h1>
+            <p class="page-subtitle">Manage your API authentication keys</p>
+        </div>
+        <button onclick="showCreateForm()" class="btn btn-primary">Create API Key</button>
+    </div>
+</div>
+
+<div id="create-form" style="display: none;" class="card mb-3">
+    <div class="card-header">
+        <h2 class="card-title">Create New API Key</h2>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="/api-keys">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+            <div class="form-group">
+                <label for="name" class="form-label form-label-required">Key Name</label>
+                <input type="text" id="name" name="name" class="form-control" required autofocus placeholder="e.g., Production Worker">
+                <span class="form-help">A descriptive name to identify this key</span>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create Key</button>
+                <button type="button" onclick="hideCreateForm()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{if .NewKey}}
+<div class="card mb-3" style="border-color: var(--color-success);">
+    <div class="card-header" style="background: #dcfce7; border-bottom: 1px solid var(--color-success);">
+        <h3 class="card-title" style="color: #166534;">API Key Created Successfully</h3>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom: 1rem;"><strong>Save this key now - you won't be able to see it again!</strong></p>
+        <div style="background: var(--color-bg-tertiary); padding: 1rem; border-radius: var(--radius-md); font-family: var(--font-mono); word-break: break-all;">
+            {{.NewKey}}
+        </div>
+    </div>
+</div>
+{{end}}
+
+<div class="card">
+    <div class="card-body">
+        {{if .APIKeys}}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Key Prefix</th>
+                        <th>Created</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .APIKeys}}
+                    <tr>
+                        <td style="font-weight: 500;">{{.Name}}</td>
+                        <td><code>{{.KeyPrefix}}...</code></td>
+                        <td>{{formatTime .CreatedAt}}</td>
+                        <td>
+                            {{if .RevokedAt.Valid}}
+                            <span class="badge badge-inactive">Revoked</span>
+                            {{else}}
+                            <span class="badge badge-active">Active</span>
+                            {{end}}
+                        </td>
+                        <td class="text-right">
+                            {{if not .RevokedAt.Valid}}
+                            <form method="POST" action="/api-keys/{{.ID}}/revoke" style="display: inline;" onsubmit="return confirm('Are you sure you want to revoke this API key? This cannot be undone.');">
+                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
+                            </form>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="empty-state">
+            <div class="empty-state-icon">🔑</div>
+            <h3 class="empty-state-title">No API keys</h3>
+            <p class="empty-state-text">Create an API key to authenticate with the API</p>
+            <button onclick="showCreateForm()" class="btn btn-primary">Create API Key</button>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+function showCreateForm() {
+    document.getElementById('create-form').style.display = 'block';
+    document.getElementById('name').focus();
+}
+function hideCreateForm() {
+    document.getElementById('create-form').style.display = 'none';
+}
+</script>
+{{end}}

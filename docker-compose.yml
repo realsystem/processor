@@ -1,0 +1,119 @@
+networks:
+  processor-network:
+    driver: bridge
+
+services:
+  control-plane:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile
+    container_name: processor-control-plane
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_PATH=${DATABASE_PATH:-/data/processor.db}
+      - SESSION_SECRET=${SESSION_SECRET:-docker-dev-session-secret}
+      - WORKER_TOKEN=${WORKER_TOKEN:-docker-dev-worker-token}
+      - WORKER_AUTH=${WORKER_AUTH:-token}
+      - HTTP_PORT=${HTTP_PORT:-8080}
+      - ENV=${ENV:-development}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LEASE_DURATION=${LEASE_DURATION:-5m}
+      # SMTP Configuration (loaded from .env file)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+    volumes:
+      - processor-data:/data
+    networks:
+      - processor-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Bootstrap: run migrations and wait for control-plane
+  # Note: Worker registration happens automatically via control-plane/internal/workers/workers.go
+  worker-bootstrap:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile
+    container_name: processor-worker-bootstrap
+    command: >
+      sh -c "
+        echo 'Running database migrations...' &&
+        /app/server -migrate &&
+        echo 'Waiting for control-plane to be ready...' &&
+        until wget -q --spider http://control-plane:8080/api/v1/health 2>/dev/null; do sleep 1; done &&
+        echo 'Control-plane is healthy!' &&
+        echo 'Bootstrap complete - worker will register on first connection'
+      "
+    environment:
+      - DATABASE_PATH=${DATABASE_PATH:-/data/processor.db}
+    volumes:
+      - processor-data:/data
+    networks:
+      - processor-network
+    depends_on:
+      - control-plane
+    restart: "no"
+
+  worker:
+    build:
+      context: ./data-plane
+      dockerfile: Dockerfile
+    container_name: processor-worker
+    environment:
+      - CONTROL_PLANE_URL=http://control-plane:8080
+      - WORKER_TOKEN=${WORKER_TOKEN:-docker-dev-worker-token}
+      - WORKER_ID=worker_docker
+      - WORKER_NAME=docker-worker
+      - POLL_INTERVAL=5s
+      - WORKER_CAPABILITIES=${WORKER_CAPABILITIES:-noop,sleep,echo_metadata,ollama_chat,llm.chat}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - WORKER_KEY_FILE=${WORKER_KEY_FILE:-}
+      - JOB_TIMEOUT=${JOB_TIMEOUT:-5m}
+      - LLM_BACKEND=${LLM_BACKEND:-ollama}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_DEFAULT_MODEL=${LLM_DEFAULT_MODEL:-llama3.2}
+    networks:
+      - processor-network
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      worker-bootstrap:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Smoke test service (runs once to verify system)
+  smoke-test:
+    image: alpine:latest
+    container_name: processor-smoke-test
+    command: >
+      sh -c "
+        apk add --no-cache curl &&
+        sleep 10 &&
+        echo 'Running smoke tests...' &&
+        curl -f http://control-plane:8080/api/v1/health &&
+        echo 'Health check passed!' &&
+        echo 'Smoke tests completed successfully'
+      "
+    networks:
+      - processor-network
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    restart: "no"
+    profiles:
+      - testing
+
+volumes:
+  processor-data:

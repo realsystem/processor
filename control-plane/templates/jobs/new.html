@@ -1,0 +1,154 @@
+{{define "content"}}
+<div class="page-header">
+    <h1 class="page-title">Create New Job</h1>
+    <p class="page-subtitle">Submit a new job to the processing queue</p>
+</div>
+
+<div class="container-narrow">
+    <form method="POST" action="/jobs/new">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+        <div class="card">
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="job_type" class="form-label form-label-required">Job Type</label>
+                    <select id="job_type" name="job_type" class="form-control" required>
+                        <option value="">Select a job type...</option>
+                        <option value="noop" {{if eq .FormData.JobType "noop"}}selected{{end}}>No-op (testing)</option>
+                        <option value="sleep" {{if eq .FormData.JobType "sleep"}}selected{{end}}>Sleep</option>
+                        <option value="echo_metadata" {{if eq .FormData.JobType "echo_metadata"}}selected{{end}}>Echo Metadata</option>
+                        <option value="ollama_chat" {{if eq .FormData.JobType "ollama_chat"}}selected{{end}}>Ollama Chat</option>
+                    </select>
+                    {{if .Errors.JobType}}<span class="form-error">{{.Errors.JobType}}</span>{{end}}
+                </div>
+
+                <!-- Ollama-specific fields (shown only for ollama_chat) -->
+                <div id="ollama_fields" style="display: none;">
+                    <div class="form-group">
+                        <label for="ollama_prompt" class="form-label form-label-required">Prompt</label>
+                        <textarea id="ollama_prompt" name="ollama_prompt" class="form-control" rows="6" placeholder="Enter your prompt here..."></textarea>
+                        <span class="form-help">What would you like the AI to do?</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ollama_model" class="form-label">Model</label>
+                        <select id="ollama_model" name="ollama_model" class="form-control">
+                            <option value="llama3.2" selected>llama3.2 (default - fast, 2GB)</option>
+                            <option value="llama3.1:8b">llama3.1:8b (better quality, 5GB)</option>
+                            <option value="llama3.1:70b">llama3.1:70b (best quality, 40GB)</option>
+                            <option value="mistral">mistral (general purpose, 4GB)</option>
+                            <option value="codellama">codellama (code generation, 4GB)</option>
+                        </select>
+                        <span class="form-help">Choose an Ollama model (must be installed)</span>
+                    </div>
+                </div>
+
+                <!-- JSON input (shown for other job types) -->
+                <div id="json_input_fields" style="display: none;">
+                    <div class="form-group">
+                        <label for="input_metadata" class="form-label">Input Metadata (JSON)</label>
+                        <textarea id="input_metadata" name="input_metadata" class="form-control" rows="8" placeholder='{"key": "value"}'>{{.FormData.InputMetadata}}</textarea>
+                        <span class="form-help">Optional JSON metadata to pass to the job</span>
+                        {{if .Errors.InputMetadata}}<span class="form-error">{{.Errors.InputMetadata}}</span>{{end}}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="priority_weight" class="form-label">Priority Weight</label>
+                    <input type="number" id="priority_weight" name="priority_weight" class="form-control" value="{{if .FormData.PriorityWeight}}{{.FormData.PriorityWeight}}{{else}}0{{end}}" min="-100" max="100">
+                    <span class="form-help">Higher values = higher priority (-100 to 100)</span>
+                    {{if .Errors.PriorityWeight}}<span class="form-error">{{.Errors.PriorityWeight}}</span>{{end}}
+                </div>
+
+                <div class="form-group">
+                    <label for="max_attempts" class="form-label">Max Attempts</label>
+                    <input type="number" id="max_attempts" name="max_attempts" class="form-control" value="{{if .FormData.MaxAttempts}}{{.FormData.MaxAttempts}}{{else}}3{{end}}" min="1" max="10">
+                    <span class="form-help">Maximum retry attempts on failure (1-10)</span>
+                    {{if .Errors.MaxAttempts}}<span class="form-error">{{.Errors.MaxAttempts}}</span>{{end}}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notifications</label>
+                    <div>
+                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" name="notify_email" value="true" {{if .FormData.NotifyEmail}}checked{{end}}>
+                            <span>Send email notification on completion</span>
+                        </label>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" name="notify_webhook" value="true" {{if .FormData.NotifyWebhook}}checked{{end}}>
+                            <span>Send webhook notification on completion</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary btn-lg">Create Job</button>
+            <a href="/jobs" class="btn btn-secondary btn-lg">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Dynamic form fields based on job type
+const jobTypeSelect = document.getElementById('job_type');
+const ollamaFields = document.getElementById('ollama_fields');
+const jsonInputFields = document.getElementById('json_input_fields');
+const ollamaPrompt = document.getElementById('ollama_prompt');
+const ollamaModel = document.getElementById('ollama_model');
+const inputMetadata = document.getElementById('input_metadata');
+
+function updateFormFields() {
+    const selectedType = jobTypeSelect.value;
+
+    if (selectedType === 'ollama_chat') {
+        // Show Ollama-specific fields
+        ollamaFields.style.display = 'block';
+        jsonInputFields.style.display = 'none';
+        ollamaPrompt.required = true;
+        inputMetadata.required = false;
+    } else {
+        // Show JSON input for other job types
+        ollamaFields.style.display = 'none';
+        jsonInputFields.style.display = 'block';
+        ollamaPrompt.required = false;
+        inputMetadata.required = false;
+    }
+
+    // Update placeholders based on job type
+    if (selectedType === 'sleep') {
+        inputMetadata.placeholder = '{"duration_seconds": 5}';
+    } else if (selectedType === 'echo_metadata') {
+        inputMetadata.placeholder = '{"message": "Hello!", "timestamp": "2024-01-01"}';
+    } else if (selectedType === 'noop') {
+        inputMetadata.placeholder = '{}';
+    } else {
+        inputMetadata.placeholder = '{"key": "value"}';
+    }
+}
+
+// Update fields on page load and when selection changes
+jobTypeSelect.addEventListener('change', updateFormFields);
+updateFormFields();
+
+// On form submit, convert Ollama fields to JSON
+document.querySelector('form').addEventListener('submit', function(e) {
+    if (jobTypeSelect.value === 'ollama_chat' && ollamaPrompt.value) {
+        // Build JSON from Ollama fields
+        const metadata = {
+            text: ollamaPrompt.value
+        };
+
+        // Only include model if it's not the default
+        if (ollamaModel.value && ollamaModel.value !== 'llama3.2') {
+            metadata.model = ollamaModel.value;
+        }
+
+        inputMetadata.value = JSON.stringify(metadata);
+    }
+});
+</script>
+{{end}}

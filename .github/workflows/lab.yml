@@ -1,0 +1,93 @@
+name: Lab
+
+# The lab part of this repo (lab/): control plane + worker + mock-llm, built from the
+# checkout. On changes to lab/ or the Dockerfiles, and nightly.
+on:
+  pull_request:
+    paths: ["lab/**", "control-plane/Dockerfile", "data-plane/Dockerfile", ".github/workflows/lab.yml"]
+  push:
+    branches: [main]
+    paths: ["lab/**"]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mock-llm:
+    name: mock-llm unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 lab/mock-llm/test_server.py
+
+  lab:
+    name: lab up, job, modes, down
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LAB_DIR: /tmp/autonomy-lab
+    steps:
+      - uses: actions/checkout@v4
+      - name: Up (builds from this checkout) and one job through to mock-llm
+        run: lab/lab.sh up
+      - name: The model is asked what a real one would be asked
+        run: |
+          grep -q '"hello"' "$LAB_DIR/processor/mock-llm/mock-llm.jsonl"
+      - name: Model modes
+        run: |
+          lab/lab.sh llm echo
+          lab/lab.sh check || true # echo mode answers with the prompt: still a result
+          lab/lab.sh llm error
+          if lab/lab.sh check; then echo "the check passed with the model in error mode"; exit 1; fi
+          lab/lab.sh llm normal
+          lab/lab.sh check
+          lab/lab.sh llm down
+          if lab/lab.sh check; then echo "the check passed with the model stopped"; exit 1; fi
+          lab/lab.sh llm normal
+          lab/lab.sh check
+      - name: Logs
+        if: always()
+        run: lab/lab.sh logs | tail -150
+      - name: Reset
+        if: always()
+        run: lab/lab.sh reset
+
+  # The whole lab: this repo's part plus edge_server's and autonomy's, orchestrated by
+  # autonomy/ops/lab/lab.sh, with a mocked Telegram API. (processor is private, so this runs
+  # here, where the checkout is possible, rather than in the other two repos.)
+  full:
+    name: full lab (autonomy orchestrator, verify)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LAB_DIR: /tmp/autonomy-lab
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: processor
+      - uses: actions/checkout@v4
+        with:
+          repository: realsystem/edge_server
+          path: edge_server
+      - uses: actions/checkout@v4
+        with:
+          repository: realsystem/autonomy
+          path: autonomy
+          ref: main
+      - name: Up (builds from the three checkouts)
+        run: autonomy/ops/lab/lab.sh up --mock-telegram --farm
+      - name: Verify every scenario
+        run: autonomy/ops/lab/lab.sh verify
+      - name: Logs
+        if: always()
+        run: autonomy/ops/lab/lab.sh logs | tail -200
+      - name: Reset
+        if: always()
+        run: autonomy/ops/lab/lab.sh reset

@@ -1,0 +1,31 @@
+[Unit]
+Description=Processor Control Plane
+After=network.target
+
+[Service]
+Type=simple
+User=processor
+Group=processor
+WorkingDirectory=/opt/processor/control-plane
+EnvironmentFile=/etc/processor/.env
+ExecStart=/opt/processor/control-plane/server
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/processor /var/log/processor
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=800M
+
+[Install]
+WantedBy=multi-user.target

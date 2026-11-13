@@ -1,0 +1,68 @@
+{{define "content"}}
+<div class="page-header">
+    <div class="d-flex justify-between align-items-center">
+        <div>
+            <h1 class="page-title">Workers</h1>
+            <p class="page-subtitle">Monitor data-plane workers</p>
+        </div>
+        <a href="/admin" class="btn btn-secondary">Back to Admin</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {{if .Workers}}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Version</th>
+                        <th>Capabilities</th>
+                        <th>Current Job</th>
+                        <th>Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Workers}}
+                    <tr>
+                        <td><code>{{truncate .ID 12}}</code></td>
+                        <td style="font-weight: 500;">{{.Name}}</td>
+                        <td>
+                            {{if eq .Status "active"}}
+                            <span class="badge badge-active">Active</span>
+                            {{else}}
+                            <span class="badge badge-inactive">{{.Status}}</span>
+                            {{end}}
+                        </td>
+                        <td>{{.Version}}</td>
+                        <td>
+                            {{range .Capabilities}}
+                            <span class="badge badge-info" style="margin-right: 0.25rem; font-size: 0.6875rem;">{{.}}</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if .CurrentJobID.Valid}}
+                            <a href="/jobs/{{.CurrentJobID.String}}"><code class="text-xs">{{truncate .CurrentJobID.String 10}}</code></a>
+                            {{else}}
+                            <span class="text-muted">-</span>
+                            {{end}}
+                        </td>
+                        <td>{{formatTime .LastSeenAt}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="empty-state">
+            <div class="empty-state-icon">🤖</div>
+            <h3 class="empty-state-title">No workers registered</h3>
+            <p class="empty-state-text">Workers will appear here once they connect</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
