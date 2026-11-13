@@ -80,7 +80,7 @@ jobs:
         with:
           repository: realsystem/autonomy
           path: autonomy
-          ref: main
+          ref: lab-authority
       - name: Up (builds from the three checkouts)
         run: autonomy/ops/lab/lab.sh up --mock-telegram --farm
       - name: Verify every scenario
