@@ -15,6 +15,30 @@ created on the server.
    token and every prompt and answer are unencrypted.
 5. The `WORKER_TOKEN` from the server's `.env` (copy it by hand; the control plane never serves it)
 
+## One-shot install (recommended)
+
+From PowerShell (admin not required for most packages; accept the winget prompts):
+
+```powershell
+git clone https://github.com/realsystem/processor; cd processor
+$env:CONTROL_PLANE_URL = "https://your-control-plane"
+powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1 -Setup
+```
+
+It installs Git, Go and Ollama with winget, pulls the model (`-Model llama3.1:8b` to change),
+and with `-Setup` builds the worker and installs it as a start-at-logon task. Add `-Tailscale`
+for a private link to your server or `-Docker` for Docker Desktop. It does not install the
+NVIDIA driver (https://www.nvidia.com/drivers). Equivalent manual commands:
+
+```powershell
+winget install -e --id Git.Git
+winget install -e --id GoLang.Go
+winget install -e --id Ollama.Ollama
+winget install -e --id tailscale.tailscale        # optional
+winget install -e --id Docker.DockerDesktop       # optional, docker mode only
+ollama pull llama3.2
+```
+
 ## Quick start (script)
 
 PowerShell, from the repository root:
