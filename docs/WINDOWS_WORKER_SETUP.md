@@ -1,278 +1,94 @@
 # Windows Worker Setup (GPU-Enabled)
 
-This guide helps you set up a worker on Windows with GPU support for fast Ollama inference.
+Run the data-plane worker on a Windows PC so it serves `llm.chat` / `ollama_chat` jobs from your
+control plane using the PC's GPU. The worker only makes outbound requests to the control plane;
+no inbound port is needed on the PC. It registers itself on its first poll, so nothing has to be
+created on the server.
 
 ## Prerequisites
 
-1. **NVIDIA GPU** with recent drivers (for GPU acceleration)
-2. **Docker Desktop for Windows** - [Download](https://www.docker.com/products/docker-desktop/)
-3. **Ollama for Windows** - [Download](https://ollama.com/download/windows)
+1. [Ollama for Windows](https://ollama.com/download/windows), with a model pulled: `ollama pull llama3.2`
+2. NVIDIA GPU with current drivers (optional; without one Ollama runs on the CPU, much slower)
+3. One of: [Go](https://go.dev/dl/) (native `worker.exe`, no Docker) or Docker Desktop with WSL2
+4. The control plane reachable from the PC, ideally over **HTTPS or a private network**
+   ([private-network.md](private-network.md)). Over plain HTTP on a public address the worker
+   token and every prompt and answer are unencrypted.
+5. The `WORKER_TOKEN` from the server's `.env` (copy it by hand; the control plane never serves it)
 
-## Quick Start (Automated)
+## Quick start (script)
 
-1. **Clone the repository** (or copy files to Windows PC)
-
-2. **Run the setup script** (PowerShell as Administrator):
-   ```powershell
-   cd \path\to\processor
-   .\scripts\setup-windows-worker.ps1
-   ```
-
-The script will:
-- Check prerequisites (Docker, Ollama, NVIDIA GPU)
-- Test Ollama connectivity
-- Fetch worker token from VPS
-- Build worker Docker image
-- Start worker container
-
-## Manual Setup
-
-### Step 1: Install Ollama
-
-Download and install Ollama for Windows:
-https://ollama.com/download/windows
-
-After installation, pull a model:
-```powershell
-ollama pull llama3.2
-```
-
-Verify GPU is detected:
-```powershell
-ollama run llama3.2 "test"
-# Check Task Manager > Performance > GPU to see GPU usage
-```
-
-### Step 2: Install Docker Desktop
-
-Download and install Docker Desktop:
-https://www.docker.com/products/docker-desktop/
-
-Make sure WSL2 backend is enabled (default).
-
-### Step 3: Verify NVIDIA GPU (Optional)
-
-Check GPU is detected:
-```powershell
-nvidia-smi
-```
-
-Expected output:
-```
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 535.xx       Driver Version: 535.xx       CUDA Version: 12.x   |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name            TCC/WDDM | Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|===============================+======================+======================|
-|   0  NVIDIA GeForce RTX...    |   00000000:01:00.0 On |                  N/A |
-```
-
-### Step 4: Get Worker Token
-
-Fetch worker token from VPS:
-```powershell
-$VPS_URL = "http://<your-server-ip>:8080"
-Invoke-RestMethod -Uri "$VPS_URL/worker/config" | ConvertTo-Json
-```
-
-Or manually retrieve from VPS:
-```bash
-ssh root@<your-server-ip>
-cat /opt/processor/.env | grep WORKER_TOKEN
-```
-
-### Step 5: Create Configuration
-
-Create `.env.windows` in the repository root:
-
-```bash
-# Worker Configuration
-WORKER_ID=worker_windows_gpu
-WORKER_TOKEN=dev-worker-token-change-in-production  # Use actual token from VPS
-CONTROL_PLANE_URL=http://<your-server-ip>:8080
-POLL_INTERVAL=5s
-WORKER_CAPABILITIES=noop,sleep,echo_metadata,ollama_chat
-
-# Ollama Configuration (Windows host)
-OLLAMA_BASE_URL=http://host.docker.internal:11434
-```
-
-**Note:** `host.docker.internal` allows Docker containers to access Windows host services.
-
-### Step 6: Build Worker Image
+PowerShell, from the repository root:
 
 ```powershell
-cd \path\to\processor
-docker build -t processor-worker:latest -f data-plane/Dockerfile ./data-plane
+$env:CONTROL_PLANE_URL = "https://your-control-plane"
+$env:WORKER_TOKEN      = "<WORKER_TOKEN from the server>"   # omit to be prompted
+.\scripts\setup-windows-worker.ps1                 # native worker.exe
+.\scripts\setup-windows-worker.ps1 -InstallTask    # native, and start at every logon
+.\scripts\setup-windows-worker.ps1 -Mode docker    # Docker Desktop instead
 ```
 
-### Step 7: Register Worker on VPS
+Optional environment variables: `WORKER_ID` (default `worker_windows_gpu`), `WORKER_CAPABILITIES`
+(default `noop,sleep,echo_metadata,ollama_chat,llm.chat`), `LLM_DEFAULT_MODEL` (default `llama3.2`).
+The script checks Ollama and the control plane's `/api/v1/health`, then builds and starts the worker.
+If PowerShell blocks the script: `powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows-worker.ps1`.
 
-SSH to VPS and register the new worker:
-
-```bash
-ssh root@<your-server-ip>
-cd /opt/processor
-sqlite3 data/processor.db "INSERT INTO workers (id, name, capabilities, status) VALUES ('worker_windows_gpu', 'windows-gpu-worker', 'noop,sleep,echo_metadata,ollama_chat', 'active');"
-```
-
-Or use the registration script:
-```bash
-# Edit scripts/register-worker.go to set WORKER_ID=worker_windows_gpu
-go run scripts/register-worker.go
-```
-
-### Step 8: Run Worker
+## Manual native run
 
 ```powershell
-docker run -d `
-  --name processor-worker-windows `
-  --env-file .env.windows `
-  processor-worker:latest
+cd data-plane
+go build -o worker.exe .\cmd\worker
+$env:CONTROL_PLANE_URL    = "https://your-control-plane"
+$env:WORKER_TOKEN         = "<WORKER_TOKEN>"
+$env:WORKER_ID            = "worker_windows_gpu"
+$env:WORKER_CAPABILITIES  = "llm.chat,ollama_chat,noop"
+$env:LLM_DEFAULT_MODEL    = "llama3.2"
+$env:JOB_TIMEOUT          = "10m"      # default 5m; large models may need more
+.\worker.exe
 ```
 
-### Step 9: Verify
+Ollama is found at `http://localhost:11434` by default. To use LM Studio, llama.cpp or vLLM
+instead, set `LLM_BACKEND=openai` and `LLM_BASE_URL=http://localhost:1234` (see
+[job-options.md](job-options.md)).
 
-Check worker logs:
-```powershell
-docker logs -f processor-worker-windows
-```
+Instead of the shared token you can use a per-worker Ed25519 key: set `WORKER_KEY_FILE`, run
+`worker.exe -print-public-key`, and register it on the server with
+`-register-worker-key <worker_id>=<key>` (see [job-options.md](job-options.md)).
 
-Expected output:
-```
-Loading environment from .env...
-Starting Processor Data Plane Worker
-Worker ID: worker_windows_gpu
-Control Plane: http://<your-server-ip>:8080
-Poll Interval: 5s
-Capabilities: [noop sleep echo_metadata ollama_chat]
-Worker started, polling for jobs...
-```
+## Verify
 
-## Testing
-
-Submit a test job to verify GPU acceleration:
+The worker log should show `Worker started, polling for jobs...`. The worker then appears under
+Admin > Workers. Submit a job (needs an API key):
 
 ```powershell
-$API_KEY = "pk_your_api_key_here"
-$VPS_URL = "http://<your-server-ip>:8080"
-
-Invoke-RestMethod -Method Post -Uri "$VPS_URL/api/v1/jobs" `
-  -Headers @{"Authorization"="Bearer $API_KEY"; "Content-Type"="application/json"} `
-  -Body (@{
-    job_type = "ollama_chat"
-    input_metadata = @{
-      text = "Write a haiku about GPUs"
-      model = "llama3.2"
-    }
-    priority_weight = 10
-  } | ConvertTo-Json)
+$h = @{ Authorization = "Bearer $env:API_KEY" }
+$body = @{ job_type = "llm.chat"; input_metadata = @{ prompt = "Write a haiku about GPUs" } } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "$env:CONTROL_PLANE_URL/api/v1/jobs" -Headers $h -ContentType "application/json" -Body $body
 ```
 
-**With GPU:** Response in ~2-5 seconds  
-**Without GPU (CPU):** Response in ~15-30 seconds
+Watch Task Manager > Performance > GPU, or `nvidia-smi -l 1`, while it runs. The first request
+loads the model into VRAM and is slower; set `"keep_alive": "30m"` in the job input to keep it loaded.
 
-Monitor GPU usage in Task Manager > Performance > GPU while job runs.
+## Running in the background
 
-## Performance Tips
-
-1. **Use larger models with GPU:**
-   ```powershell
-   ollama pull llama3.1:8b   # Better quality, still fast on GPU
-   ollama pull mistral       # Good general purpose
-   ```
-
-2. **Keep models loaded:**
-   - First request loads model into VRAM (~5-10 seconds)
-   - Subsequent requests are instant (model stays in memory)
-
-3. **Monitor VRAM usage:**
-   - llama3.2: ~2GB VRAM
-   - llama3.1:8b: ~5GB VRAM
-   - llama3.1:70b: ~40GB VRAM (requires high-end GPU)
-
-4. **Check GPU utilization:**
-   ```powershell
-   # While job is running, check Task Manager or:
-   nvidia-smi -l 1  # Updates every second
-   ```
+- `-InstallTask` registers a scheduled task `ProcessorWorker` that starts at logon and restarts on
+  failure. Log: `%LOCALAPPDATA%\processor-worker\worker.log`. Remove it with
+  `Unregister-ScheduledTask ProcessorWorker -Confirm:$false`. Its launcher file holds the token
+  and is restricted to your user.
+- Docker mode uses `--restart unless-stopped`; stop it with `docker rm -f processor-worker-windows`.
 
 ## Troubleshooting
 
-### "Ollama not responding"
+- **Cannot reach the control plane**: `Test-NetConnection <host> -Port 443` (or 8080); check the
+  server firewall.
+- **401/403 from the control plane**: wrong `WORKER_TOKEN`.
+- **Jobs of a type are never picked up**: that type is missing from `WORKER_CAPABILITIES`.
+- **Ollama not responding**: start it with `ollama serve`; confirm `curl http://localhost:11434/api/tags`.
+- **No GPU use**: check `nvidia-smi`, update drivers, and make sure the model fits in VRAM
+  (about 2 GB for llama3.2, 5 GB for llama3.1:8b).
+- **Docker mode cannot reach Ollama**: use the WSL2 backend; test with
+  `docker run --rm curlimages/curl curl http://host.docker.internal:11434/api/tags`.
 
-Check Ollama service:
-```powershell
-# Restart Ollama
-taskkill /F /IM ollama.exe
-ollama serve
-```
+## Multiple workers
 
-### "Worker can't connect to VPS"
-
-Check firewall:
-- Windows Firewall may block outbound connections
-- VPS firewall must allow port 8080
-
-Test connectivity:
-```powershell
-Test-NetConnection -ComputerName <your-server-ip> -Port 8080
-```
-
-### "No GPU acceleration"
-
-Verify:
-1. NVIDIA drivers installed: `nvidia-smi`
-2. GPU is not in TCC mode (for consumer GPUs)
-3. Ollama shows GPU usage in Task Manager while running
-
-### "Docker container can't reach host Ollama"
-
-Make sure Docker Desktop is using WSL2 backend:
-- Docker Desktop > Settings > General > Use WSL2 based engine (checked)
-
-Test from container:
-```powershell
-docker run --rm curlimages/curl:latest curl http://host.docker.internal:11434/api/tags
-```
-
-## Stopping Worker
-
-```powershell
-docker stop processor-worker-windows
-docker rm processor-worker-windows
-```
-
-## Updates
-
-To update worker with new code:
-
-```powershell
-# Stop and remove old container
-docker stop processor-worker-windows
-docker rm processor-worker-windows
-
-# Remove old image
-docker rmi processor-worker:latest
-
-# Rebuild and restart
-docker build -t processor-worker:latest -f data-plane/Dockerfile ./data-plane
-docker run -d --name processor-worker-windows --env-file .env.windows processor-worker:latest
-```
-
-## Multiple Workers
-
-You can run multiple workers with different capabilities:
-
-```powershell
-# GPU worker for Ollama jobs
-WORKER_ID=worker_windows_gpu_1
-WORKER_CAPABILITIES=ollama_chat
-
-# CPU worker for other jobs
-WORKER_ID=worker_windows_cpu_1
-WORKER_CAPABILITIES=noop,sleep,echo_metadata
-```
-
-Each needs to be registered separately on the VPS.
+Run each with its own `WORKER_ID`; they register themselves. Give a GPU worker `llm.chat,ollama_chat`
+and CPU-only workers the lightweight types.

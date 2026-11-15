@@ -49,3 +49,6 @@ temp/
 # Build artifacts
 control-plane/server
 data-plane/worker
+
+# Windows worker settings (contains WORKER_TOKEN)
+.env.windows
