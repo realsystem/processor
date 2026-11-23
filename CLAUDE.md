@@ -4,10 +4,10 @@
 
 ## Commands
 - Two separate Go modules (`control-plane/`, `data-plane/`), no go.work. Run Go commands inside each module; top-level `make` wraps both.
-- Build: `make build` (outputs `control-plane/server`, `data-plane/worker`, both git-ignored; `make clean` removes them). Data-plane build verified; control-plane unverified here.
-- Test all: `make test` (= `go test -v -race -cover ./...` per module). Single test: `cd data-plane && go test -race -run TestLLMChatInputValidation -v ./internal/executor`; same shape in `control-plane` (unverified).
+- Build: `make build` (outputs `control-plane/server`, `data-plane/worker`, both git-ignored; `make clean` removes them). Both modules build here (control plane needs the offline module cache, see Gotchas).
+- Test all: `make test` (= `go test -v -race -cover ./...` per module). Single test: `cd data-plane && go test -race -run TestLLMChatInputValidation -v ./internal/executor`; same shape in `control-plane`. Verified: `go test -race -count=1 ./...` passes in both modules, `go vet` and `gofmt -l .` are clean.
 - Format/vet (what CI enforces): `gofmt -l .` must print nothing; `go vet ./...`; CI also runs `go test -race -count=1 ./...`.
-- Run locally: `cd control-plane && make dev` (loads `control-plane/.env` if present), then `cd data-plane && make dev` in another terminal (unverified: control plane could not be built here).
+- Run locally: `cd control-plane && make dev` (loads `control-plane/.env` if present), then `cd data-plane && make dev` in another terminal (`make dev` itself unverified).
 - Docker stack: `make dev-up` / `dev-down` / `dev-reset` (unverified: no Docker daemon here). CI uses `docker compose`; the Makefile's docker targets call legacy `docker-compose`.
 - Lab (control plane + signed worker + fake model): `lab/lab.sh up | check | llm <mode> | down` (unverified, needs Docker).
 - E2E (needs the compose stack up): `bash tests/smoke_test.sh`, `bash tests/e2e_job.sh` (`SIGNED=1` with `WORKER_AUTH=signature`).
@@ -30,7 +30,7 @@
 - In Claude Code web sessions `gh pr create` fails (GraphQL blocked): `gh api repos/realsystem/processor/pulls -f title=... -f head=BRANCH -f base=main -F body=@file`; merge with `gh api -X PUT repos/realsystem/processor/pulls/N/merge -f merge_method=squash`.
 
 ## Gotchas
-- Control plane needs CGO (go-sqlite3): gcc required, and `-race` needs it in both modules. Module downloads fail in sandboxed sessions without network, so control-plane cannot build there.
+- Control plane needs CGO (go-sqlite3): gcc required, and `-race` needs it in both modules. Module downloads fail in sandboxed sessions without network; the control plane then builds only with a pre-seeded copy of its go.mod/go.sum, e.g. `GOWORK=off GOPROXY=direct GOSUMDB=off GOFLAGS=-modfile=/tmp/gomods/control-plane.go.mod go test ./...` (needs that cache to exist).
 - Go toolchain: `go.mod` says 1.21, Dockerfiles use `golang:1.25`, Dependabot ignores `x/crypto`/`x/time` bumps that need newer Go. Don't raise `go` in go.mod casually.
 - `make lint` fails today when golangci-lint is installed (9 pre-existing errcheck/staticcheck findings in data-plane); CI does not run it. Don't treat as a regression.
 - Env: see `.env.example` (copy to `.env`, git-ignored; `*.env` and `.env.windows` too). `ENV=production` refuses short/default `SESSION_SECRET`/`WORKER_TOKEN` (>=32 chars, no `docker-dev-*`) and `ADMIN_PASSWORD=admin123`. Worker needs `CONTROL_PLANE_URL` plus `WORKER_TOKEN` or `WORKER_KEY_FILE`; `WORKER_AUTH` on the server is `token|signature|any`.
