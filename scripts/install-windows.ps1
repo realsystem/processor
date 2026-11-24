@@ -6,6 +6,7 @@
 #   ... -Model llama3.1:8b          # model to pull (default llama3.2)
 #   ... -Docker                     # also install Docker Desktop (only for -Mode docker)
 #   ... -Tailscale                  # also install Tailscale (private link to your server)
+#   ... -SignedKey                  # with -Setup: use an Ed25519 key instead of WORKER_TOKEN
 #   ... -Setup                      # afterwards run setup-windows-worker.ps1 -InstallTask
 #                                   #   (needs $env:CONTROL_PLANE_URL; asks for WORKER_TOKEN)
 #
@@ -15,7 +16,8 @@ param(
     [string]$Model = "llama3.2",
     [switch]$Docker,
     [switch]$Tailscale,
-    [switch]$Setup
+    [switch]$Setup,
+    [switch]$SignedKey
 )
 $ErrorActionPreference = "Stop"
 
@@ -32,8 +34,8 @@ function Ensure-Package($Id, $Command, $Label) {
     if (Get-Command $Command -ErrorAction SilentlyContinue) { Write-Host "[ok]      $Label already installed"; return }
     Write-Host "[install] $Label ($Id)..." -ForegroundColor Yellow
     winget install --id $Id -e --silent --accept-package-agreements --accept-source-agreements
-    # -1978335189 = "already installed / no applicable update"; treat as success
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) { throw "winget failed for $Id (exit $LASTEXITCODE)" }
+    # -1978335189 = no applicable update, -1978335135 = already installed; both are success
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189 -and $LASTEXITCODE -ne -1978335135) { throw "winget failed for $Id (exit $LASTEXITCODE)" }
     Refresh-Path
 }
 
@@ -68,7 +70,9 @@ Write-Host "Installed: git $(git --version) | $(go version) | ollama $(ollama --
 
 if ($Setup) {
     $env:LLM_DEFAULT_MODEL = $Model
-    & (Join-Path $PSScriptRoot "setup-windows-worker.ps1") -InstallTask
+    $setupArgs = @{ InstallTask = $true }
+    if ($SignedKey) { $setupArgs.SignedKey = $true }
+    & (Join-Path $PSScriptRoot "setup-windows-worker.ps1") @setupArgs
 } else {
     Write-Host @"
 
