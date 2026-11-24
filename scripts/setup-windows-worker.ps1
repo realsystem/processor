@@ -6,11 +6,15 @@
 #   .\scripts\setup-windows-worker.ps1                 # native worker.exe (needs Go)
 #   .\scripts\setup-windows-worker.ps1 -Mode docker    # Docker Desktop instead
 #   .\scripts\setup-windows-worker.ps1 -InstallTask    # native: also start at logon
+#   .\scripts\setup-windows-worker.ps1 -SignedKey      # native: sign requests with an Ed25519 key
+#                                                      #   (server WORKER_AUTH=signature|any); no token needed.
+#                                                      #   Prints the command that registers the public key.
 #
 # The worker registers itself on its first poll; nothing to do on the server.
 param(
     [ValidateSet("native", "docker")][string]$Mode = "native",
-    [switch]$InstallTask
+    [switch]$InstallTask,
+    [switch]$SignedKey
 )
 $ErrorActionPreference = "Stop"
 
@@ -25,12 +29,14 @@ if ($ControlPlane -match "^http://" -and $ControlPlane -notmatch "^http://(local
 $WorkerId = if ($env:WORKER_ID) { $env:WORKER_ID } else { "worker_windows_gpu" }
 $Capabilities = if ($env:WORKER_CAPABILITIES) { $env:WORKER_CAPABILITIES } else { "noop,sleep,echo_metadata,ollama_chat,llm.chat" }
 $Model = if ($env:LLM_DEFAULT_MODEL) { $env:LLM_DEFAULT_MODEL } else { "llama3.2" }
+if ($SignedKey -and $Mode -eq "docker") { throw "-SignedKey is only supported with -Mode native" }
 $Token = $env:WORKER_TOKEN
-if (-not $Token) {
+if ($SignedKey) { $Token = "" }
+elseif (-not $Token) {
     $secure = Read-Host "WORKER_TOKEN (from the server's .env)" -AsSecureString
     $Token = [System.Net.NetworkCredential]::new("", $secure).Password
 }
-if (-not $Token) { throw "WORKER_TOKEN is required" }
+if (-not $SignedKey -and -not $Token) { throw "WORKER_TOKEN is required (or use -SignedKey)" }
 
 Write-Host "[1/4] Checking Ollama..." -ForegroundColor Yellow
 if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
@@ -91,7 +97,25 @@ $exe = Join-Path $Root "data-plane\worker.exe"
 Push-Location (Join-Path $Root "data-plane")
 try { go build -o $exe ./cmd/worker; if ($LASTEXITCODE -ne 0) { throw "go build failed" } } finally { Pop-Location }
 
-$env:WORKER_ID = $WorkerId; $env:WORKER_TOKEN = $Token; $env:CONTROL_PLANE_URL = $ControlPlane
+$KeyFile = ""
+if ($SignedKey) {
+    $keyDir = Join-Path $env:LOCALAPPDATA "processor-worker"
+    New-Item -ItemType Directory -Force $keyDir | Out-Null
+    $KeyFile = Join-Path $keyDir "worker.key"
+    $env:WORKER_KEY_FILE = $KeyFile
+    $env:WORKER_ID = $WorkerId
+    $pub = (& $exe -print-public-key | Select-Object -Last 1).Trim()
+    if (-not $pub) { throw "could not read the worker public key" }
+    Write-Host ""
+    Write-Host "Register this worker's public key on the control plane (run on the server):" -ForegroundColor Cyan
+    Write-Host "  ./server -register-worker-key `"${WorkerId}=${pub}`" -capabilities $Capabilities"
+    Write-Host "  (Docker deployments: docker compose exec -T control-plane ./server -register-worker-key ...)"
+    Write-Host "Private key stays in $KeyFile - do not share it." -ForegroundColor Gray
+    Read-Host "Press Enter once the key is registered"
+    Remove-Item Env:WORKER_TOKEN -ErrorAction SilentlyContinue
+}
+$env:WORKER_ID = $WorkerId; $env:CONTROL_PLANE_URL = $ControlPlane
+if (-not $SignedKey) { $env:WORKER_TOKEN = $Token }
 $env:WORKER_CAPABILITIES = $Capabilities; $env:LLM_DEFAULT_MODEL = $Model
 if (-not $env:JOB_TIMEOUT) { $env:JOB_TIMEOUT = "10m" }
 
@@ -102,7 +126,7 @@ if ($InstallTask) {
     New-Item -ItemType Directory -Force $dir | Out-Null
     $launch = Join-Path $dir "run.ps1"
     @"
-`$env:WORKER_ID='$WorkerId'; `$env:WORKER_TOKEN='$Token'; `$env:CONTROL_PLANE_URL='$ControlPlane'
+`$env:WORKER_ID='$WorkerId'; `$env:WORKER_TOKEN='$Token'; `$env:WORKER_KEY_FILE='$KeyFile'; `$env:CONTROL_PLANE_URL='$ControlPlane'
 `$env:WORKER_CAPABILITIES='$Capabilities'; `$env:LLM_DEFAULT_MODEL='$Model'; `$env:JOB_TIMEOUT='$($env:JOB_TIMEOUT)'
 & '$exe' *>> '$dir\worker.log'
 "@ | Set-Content -Path $launch -Encoding ascii

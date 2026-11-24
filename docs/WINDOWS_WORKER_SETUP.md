@@ -51,6 +51,12 @@ $env:WORKER_TOKEN      = "<WORKER_TOKEN from the server>"   # omit to be prompte
 .\scripts\setup-windows-worker.ps1 -Mode docker    # Docker Desktop instead
 ```
 
+If your control plane runs with `WORKER_AUTH=signature` (or you prefer no shared token), add
+`-SignedKey`: the script creates an Ed25519 key in `%LOCALAPPDATA%\processor-worker\worker.key`,
+prints the exact `./server -register-worker-key "<id>=<public key>" -capabilities ...` command to run
+on the server, and continues when you press Enter. Native mode only. With `install-windows.ps1`
+pass `-Setup -SignedKey`.
+
 Optional environment variables: `WORKER_ID` (default `worker_windows_gpu`), `WORKER_CAPABILITIES`
 (default `noop,sleep,echo_metadata,ollama_chat,llm.chat`), `LLM_DEFAULT_MODEL` (default `llama3.2`).
 The script checks Ollama and the control plane's `/api/v1/health`, then builds and starts the worker.
