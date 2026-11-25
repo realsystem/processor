@@ -19,6 +19,8 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LEASE_DURATION=${LEASE_DURATION:-5m}
+      - LLM_MODELS=${LLM_MODELS:-}
+      - LLM_DEFAULT_MODEL=${LLM_DEFAULT_MODEL:-}
     volumes:
       - processor-data:/data
     restart: unless-stopped
@@ -28,6 +30,27 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  # Optional Telegram front end: docker compose -f docker-compose.deploy.yml --profile telegram up -d
+  # Needs TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS and PROCESSOR_API_KEY in .env (docs/telegram-bot.md).
+  telegram-bot:
+    profiles: ["telegram"]
+    image: ghcr.io/realsystem/processor-control-plane:${PROCESSOR_TAG:-main}
+    container_name: processor-telegram-bot
+    command: ["./telegram-bot"]
+    environment:
+      - PROCESSOR_URL=http://control-plane:8080
+      - PROCESSOR_API_KEY=${PROCESSOR_API_KEY:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS:-}
+      - BOT_DEFAULT_MODEL=${BOT_DEFAULT_MODEL:-}
+      - BOT_JOB_TIMEOUT=${BOT_JOB_TIMEOUT:-15m}
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    healthcheck:
+      disable: true # the image's health check probes the control plane's port
+    restart: unless-stopped
 
 volumes:
   processor-data:

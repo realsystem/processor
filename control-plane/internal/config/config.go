@@ -33,6 +33,12 @@ type Config struct {
 	// reference in /v1/health); empty is fine for a standalone install.
 	Cell string
 
+	// LLM models offered in the web job form and by GET /api/v1/models (the control plane
+	// cannot see which models a worker has pulled, so this list is configured). The default
+	// is always part of the list.
+	LLMModels       []string
+	LLMDefaultModel string
+
 	// Environment
 	Env      string
 	LogLevel string
@@ -72,11 +78,32 @@ func Load() (*Config, error) {
 		SMTPFrom:       getEnv("SMTP_FROM", "noreply@processor.local"),
 	}
 
+	cfg.LLMDefaultModel = getEnv("LLM_DEFAULT_MODEL", "llama3.2")
+	cfg.LLMModels = ParseModels(getEnv("LLM_MODELS", "llama3.2,gemma2:2b,qwen2.5:7b,llama3.1:8b,qwen2.5:14b"), cfg.LLMDefaultModel)
+
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
 	return cfg, nil
+}
+
+// ParseModels splits a comma-separated model list, dropping blanks and duplicates, and puts
+// def first when it is missing so the default is always selectable.
+func ParseModels(list, def string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range strings.Split(list, ",") {
+		m = strings.TrimSpace(m)
+		if m != "" && !seen[m] {
+			seen[m] = true
+			out = append(out, m)
+		}
+	}
+	if def != "" && !seen[def] {
+		out = append([]string{def}, out...)
+	}
+	return out
 }
 
 // Validate checks that required configuration is present

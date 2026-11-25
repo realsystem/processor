@@ -43,3 +43,14 @@ func TestDevelopmentKeepsItsDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestParseModels(t *testing.T) {
+	got := ParseModels(" a, b ,,a,c ", "z")
+	want := []string{"z", "a", "b", "c"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	if got := ParseModels("a,b", "b"); strings.Join(got, "|") != "a|b" {
+		t.Fatalf("default already listed must not move or duplicate: %v", got)
+	}
+}
