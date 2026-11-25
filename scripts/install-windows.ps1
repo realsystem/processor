@@ -33,7 +33,8 @@ function Ensure-Package($Id, $Command, $Label) {
     Refresh-Path
     if (Get-Command $Command -ErrorAction SilentlyContinue) { Write-Host "[ok]      $Label already installed"; return }
     Write-Host "[install] $Label ($Id)..." -ForegroundColor Yellow
-    winget install --id $Id -e --silent --accept-package-agreements --accept-source-agreements
+    # --source winget: skips the msstore source, whose certificate check fails on some networks (0x8a15005e)
+    winget install --id $Id -e --source winget --silent --accept-package-agreements --accept-source-agreements
     # -1978335189 = no applicable update, -1978335135 = already installed; both are success
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189 -and $LASTEXITCODE -ne -1978335135) { throw "winget failed for $Id (exit $LASTEXITCODE)" }
     Refresh-Path
