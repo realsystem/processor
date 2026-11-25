@@ -1,0 +1,32 @@
+# Control plane from the prebuilt GHCR image (no build on the host).
+#   docker compose -f docker-compose.deploy.yml pull && docker compose -f docker-compose.deploy.yml up -d
+# Pin a release with PROCESSOR_TAG=sha-abc1234 (default: main). Settings come from .env.
+services:
+  control-plane:
+    image: ghcr.io/realsystem/processor-control-plane:${PROCESSOR_TAG:-main}
+    container_name: processor-control-plane
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_PATH=/data/processor.db
+      - SESSION_SECRET=${SESSION_SECRET}
+      - WORKER_TOKEN=${WORKER_TOKEN:-}
+      - WORKER_AUTH=${WORKER_AUTH:-signature}
+      - HTTP_PORT=8080
+      - ENV=${ENV:-production}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LEASE_DURATION=${LEASE_DURATION:-5m}
+    volumes:
+      - processor-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  processor-data:
