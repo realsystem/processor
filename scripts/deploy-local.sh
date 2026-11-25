@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Deploy the control plane on THIS machine (e.g. a fresh GCP VM) with Docker Compose.
+# Deploy the control plane on THIS machine (e.g. a fresh GCP VM) from the prebuilt GHCR image
+# (built by CI on push to main; nothing is compiled here).
 #   ./scripts/deploy-local.sh [admin-email]
-# Re-running keeps the existing .env (and your data) and just rebuilds/restarts.
+#   PROCESSOR_TAG=sha-abc1234 ./scripts/deploy-local.sh   # pin a version (default: main)
+# Re-running keeps the existing .env (and your data) and just pulls and restarts.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -27,7 +29,9 @@ ENV
   echo "Created .env  (admin: $ADMIN_EMAIL / $ADMIN_PASSWORD)  <- save this"
 fi
 
-$DOCKER compose up -d --build control-plane
+COMPOSE="$DOCKER compose -f docker-compose.deploy.yml"
+$COMPOSE pull
+$COMPOSE up -d
 
 echo "Waiting for health..."
 for _ in $(seq 1 30); do
@@ -41,5 +45,5 @@ Next:
   - Reach it from your PC via Tailscale (http://<vm-tailnet-name>:8080) or a TLS proxy.
     Port 8080 is published on all interfaces: keep the GCP firewall closed to it.
   - Register a worker's public key (printed by the Windows setup script):
-      $DOCKER compose exec control-plane ./server -register-worker-key gpu-1=<pubkey> -capabilities llm.chat
+      $COMPOSE exec control-plane ./server -register-worker-key gpu-1=<pubkey> -capabilities llm.chat
 MSG
