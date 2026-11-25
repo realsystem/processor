@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Deploy the control plane on THIS machine (e.g. a fresh GCP VM) with Docker Compose.
+# Deploy the control plane on THIS machine (e.g. a fresh GCP VM) from the prebuilt GHCR image
+# (built by CI on push to main; nothing is compiled here).
 #   ./scripts/deploy-local.sh [admin-email]
 #   PROCESSOR_TAG=sha-abc1234 ./scripts/deploy-local.sh   # pin a version (default: main)
 # Re-running keeps the existing .env (and your data) and just pulls and restarts.
