@@ -42,8 +42,8 @@ done
 cat <<MSG
 
 Next:
-  - Reach it from your PC via Tailscale (http://<vm-tailnet-name>:8080) or a TLS proxy.
-    Port 8080 is published on all interfaces: keep the GCP firewall closed to it.
+  - Put a TLS reverse proxy in front (e.g. Caddy: reverse_proxy localhost:8080) or use Tailscale.
+    Port 8080 is bound to localhost: reach it through a reverse proxy (PROCESSOR_BIND=0.0.0.0 to expose it).
   - Register a worker's public key (printed by the Windows setup script):
       $COMPOSE exec control-plane ./server -register-worker-key gpu-1=<pubkey> -capabilities llm.chat
 MSG

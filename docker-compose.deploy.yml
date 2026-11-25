@@ -1,12 +1,13 @@
 # Control plane from the prebuilt GHCR image (no build on the host).
 #   docker compose -f docker-compose.deploy.yml pull && docker compose -f docker-compose.deploy.yml up -d
 # Pin a release with PROCESSOR_TAG=sha-abc1234 (default: main). Settings come from .env.
+# Port 8080 binds to localhost only: put a reverse proxy (Caddy/nginx) in front. PROCESSOR_BIND=0.0.0.0 exposes it.
 services:
   control-plane:
     image: ghcr.io/realsystem/processor-control-plane:${PROCESSOR_TAG:-main}
     container_name: processor-control-plane
     ports:
-      - "8080:8080"
+      - "${PROCESSOR_BIND:-127.0.0.1}:8080:8080"
     environment:
       - DATABASE_PATH=/data/processor.db
       - SESSION_SECRET=${SESSION_SECRET}
