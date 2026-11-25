@@ -14,7 +14,8 @@ RUN go mod download
 COPY . .
 
 # Build binary with dynamic linking to properly support TLS certificate verification
-RUN CGO_ENABLED=1 GOOS=linux go build -o server ./cmd/server
+RUN CGO_ENABLED=1 GOOS=linux go build -o server ./cmd/server && \
+    CGO_ENABLED=0 GOOS=linux go build -o telegram-bot ./cmd/telegram-bot
 
 # Runtime stage
 FROM alpine:latest
@@ -29,7 +30,7 @@ RUN apk --no-cache add ca-certificates sqlite wget libc6-compat && \
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /app/server .
+COPY --from=builder /app/server /app/telegram-bot ./
 
 # Copy templates and static files
 COPY --from=builder /app/templates ./templates

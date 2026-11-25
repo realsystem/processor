@@ -122,6 +122,7 @@ func main() {
 
 	// Initialize API
 	api := httpapi.NewAPI(authService, jobsService, webhookService, emailService, workerService, cfg.WorkerToken)
+	api.SetModels(cfg.LLMModels, cfg.LLMDefaultModel)
 	api.SetWorkerAuth(cfg.WorkerAuth)
 	api.SetCell(cfg.Cell)
 	log.Printf("Worker authentication: %s", cfg.WorkerAuth)
@@ -153,6 +154,7 @@ func main() {
 
 	// Initialize web handlers
 	webHandlers := web.NewWebHandlers(authService, jobsService, webhookService, workerService, renderer)
+	webHandlers.SetModels(cfg.LLMModels, cfg.LLMDefaultModel)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -270,6 +272,7 @@ func main() {
 	mux.Handle("/api/v1/jobs/", authMiddleware.APIAuth(http.HandlerFunc(api.JobAction)))
 	mux.Handle("/api/v1/stats", authMiddleware.APIAuth(http.HandlerFunc(api.Stats)))
 	mux.Handle("/api/v1/job-types", authMiddleware.APIAuth(http.HandlerFunc(api.JobTypes)))
+	mux.Handle("/api/v1/models", authMiddleware.APIAuth(http.HandlerFunc(api.Models)))
 
 	// API Keys
 	mux.Handle("/api/v1/api-keys", handleMethodRouter(authMiddleware.APIAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

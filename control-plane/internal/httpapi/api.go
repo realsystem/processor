@@ -29,6 +29,29 @@ type API struct {
 	workerAuth     string
 	cell           string
 	jobTypes       *jobtypes.Registry // optional typed contracts (J3); nil: every type is untyped
+	models         []string           // LLM models offered to clients (config LLM_MODELS)
+	defaultModel   string
+}
+
+// SetModels sets the LLM models that GET /api/v1/models lists, and the default one.
+func (api *API) SetModels(models []string, def string) {
+	api.models, api.defaultModel = models, def
+}
+
+// Models lists the LLM models a client can put in an llm.chat job's "model" field.
+func (api *API) Models(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Use GET")
+		return
+	}
+	models := api.models
+	if models == nil {
+		models = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    map[string]interface{}{"models": models, "default": api.defaultModel},
+	})
 }
 
 // SetJobTypes sets the registry of typed job contracts (J3). Nil, the default, leaves every

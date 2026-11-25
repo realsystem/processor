@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,6 +22,57 @@ type WebHandlers struct {
 	webhookService *webhooks.Service
 	workerService  *workers.Service
 	renderer       *TemplateRenderer
+	models         []string // LLM models offered in the job form (config LLM_MODELS)
+	defaultModel   string
+}
+
+// SetModels sets the models shown in the job form's model dropdown and the preselected one.
+func (h *WebHandlers) SetModels(models []string, def string) {
+	h.models, h.defaultModel = models, def
+}
+
+// newJobForm is the data every render of the create-job page needs.
+func (h *WebHandlers) newJobForm(extra map[string]interface{}) map[string]interface{} {
+	data := map[string]interface{}{
+		"Title":    "Create Job",
+		"Models":   h.models,
+		"FormData": map[string]interface{}{"LLMModel": h.defaultModel},
+		"Errors":   map[string]string{},
+	}
+	for k, v := range extra {
+		data[k] = v
+	}
+	return data
+}
+
+// isLLMJob reports whether the job type is built from the prompt + model form fields.
+func isLLMJob(jobType string) bool { return jobType == "llm.chat" || jobType == "ollama_chat" }
+
+// buildLLMInput turns the form's prompt/model/system fields into the job input. The model
+// must be one of the offered ones (an empty model means the worker's default).
+func buildLLMInput(models []string, prompt, model, system string) (map[string]interface{}, error) {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return nil, errors.New("Prompt is required")
+	}
+	input := map[string]interface{}{"prompt": prompt}
+	if model != "" {
+		ok := false
+		for _, m := range models {
+			if m == model {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return nil, errors.New("Unknown model")
+		}
+		input["model"] = model
+	}
+	if system = strings.TrimSpace(system); system != "" {
+		input["system"] = system
+	}
+	return input, nil
 }
 
 // NewWebHandlers creates a new web handlers instance
@@ -281,9 +333,7 @@ func (h *WebHandlers) ShowNewJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderer.Render(w, r, "jobs/new.html", map[string]interface{}{
-		"Title": "Create Job",
-	})
+	h.renderer.Render(w, r, "jobs/new.html", h.newJobForm(nil))
 }
 
 // CreateJob handles job creation
@@ -319,8 +369,16 @@ func (h *WebHandlers) CreateJob(w http.ResponseWriter, r *http.Request) {
 		errors["JobType"] = "Job type is required"
 	}
 
+	llmPrompt, llmModel, llmSystem := r.FormValue("llm_prompt"), r.FormValue("llm_model"), r.FormValue("llm_system")
+
 	var inputMetadata map[string]interface{}
-	if inputMetadataStr == "" {
+	if isLLMJob(jobType) {
+		in, err := buildLLMInput(h.models, llmPrompt, llmModel, llmSystem)
+		if err != nil {
+			errors["LLMPrompt"] = err.Error()
+		}
+		inputMetadata = in
+	} else if inputMetadataStr == "" {
 		inputMetadata = make(map[string]interface{})
 	} else {
 		if err := json.Unmarshal([]byte(inputMetadataStr), &inputMetadata); err != nil {
@@ -336,18 +394,20 @@ func (h *WebHandlers) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(errors) > 0 {
-		h.renderer.Render(w, r, "jobs/new.html", map[string]interface{}{
-			"Title":  "Create Job",
+		h.renderer.Render(w, r, "jobs/new.html", h.newJobForm(map[string]interface{}{
 			"Errors": errors,
 			"FormData": map[string]interface{}{
 				"JobType":        jobType,
 				"InputMetadata":  inputMetadataStr,
+				"LLMPrompt":      llmPrompt,
+				"LLMModel":       llmModel,
+				"LLMSystem":      llmSystem,
 				"PriorityWeight": priorityWeight,
 				"MaxAttempts":    maxAttempts,
 				"NotifyEmail":    notifyEmail,
 				"NotifyWebhook":  notifyWebhook,
 			},
-		})
+		}))
 		return
 	}
 
