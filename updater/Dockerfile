@@ -1,5 +1,5 @@
 # Telegram updater bot: static binary, no CGO, no dependencies outside the Go standard library.
-FROM golang:1.25-alpine AS builder
+FROM golang:1.27-alpine AS builder
 ARG VERSION=dev
 WORKDIR /src
 COPY . .
