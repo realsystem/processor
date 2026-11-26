@@ -1,0 +1,36 @@
+# Telegram updater bot, next to the control plane (see docs/updater.md).
+#   docker compose -f docker-compose.updater.yml up -d --build
+#   docker compose -f docker-compose.updater.yml run --rm updater-bot --totp-setup
+# The project name differs from the control plane's on purpose: the two stacks must never see each
+# other as orphans. The bot has no ports (outbound HTTPS only) and no Docker socket.
+name: processor-updater
+
+services:
+  updater-bot:
+    build:
+      context: ./updater
+      args:
+        VERSION: ${UPDATER_VERSION:-dev}
+    container_name: processor-updater-bot
+    user: "10001:10001"
+    env_file:
+      - ${UPDATER_ENV_FILE:-/etc/processor-updater/updater.env}
+    environment:
+      - UPDATER_BOT_DIR=/state/bot
+      - UPDATER_REQUESTS_DIR=/state/requests
+      - UPDATER_RESULTS_DIR=/state/results
+    secrets:
+      - telegram_token
+    volumes:
+      - ${UPDATER_STATE_DIR:-/var/lib/processor-updater}/bot:/state/bot
+      - ${UPDATER_STATE_DIR:-/var/lib/processor-updater}/requests:/state/requests
+      - ${UPDATER_STATE_DIR:-/var/lib/processor-updater}/results:/state/results:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+secrets:
+  telegram_token:
+    file: ${UPDATER_TOKEN_FILE:-/etc/processor-updater/telegram_token}

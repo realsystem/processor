@@ -52,3 +52,9 @@ data-plane/worker
 
 # Windows worker settings (contains WORKER_TOKEN)
 .env.windows
+
+# Telegram updater: settings, secrets and the built binary
+updater.env
+totp.secret
+telegram_token
+updater/updater-bot

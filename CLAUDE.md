@@ -3,7 +3,7 @@
 - Split-system job platform in Go: a public **control plane** (HTTP API + web UI, SQLite queue) and a private **data plane** worker that polls it and runs jobs (mainly `llm.chat` against Ollama/OpenAI-compatible servers). Used by the Autonomy platform (edge_server, `autonomy`) as its model/job service; must stay a general-purpose job platform.
 
 ## Commands
-- Two separate Go modules (`control-plane/`, `data-plane/`), no go.work. Run Go commands inside each module; top-level `make` wraps both.
+- Three separate Go modules (`control-plane/`, `data-plane/`, `updater/`), no go.work. Run Go commands inside each module; top-level `make` wraps the first two only. `updater/` is stdlib-only (no downloads needed): `cd updater && go test -race -count=1 ./...` (includes an end-to-end test with a fake Telegram and GitHub that runs the real `scripts/processor-update.sh`; needs bash and `flock`).
 - Build: `make build` (outputs `control-plane/server`, `data-plane/worker`, both git-ignored; `make clean` removes them). Both modules build here (control plane needs the offline module cache, see Gotchas).
 - Test all: `make test` (= `go test -v -race -cover ./...` per module). Single test: `cd data-plane && go test -race -run TestLLMChatInputValidation -v ./internal/executor`; same shape in `control-plane`. Verified: `go test -race -count=1 ./...` passes in both modules, `go vet` and `gofmt -l .` are clean.
 - Format/vet (what CI enforces): `gofmt -l .` must print nothing; `go vet ./...`; CI also runs `go test -race -count=1 ./...`.
@@ -19,6 +19,7 @@
 - `control-plane/internal/`: `httpapi` (JSON API, worker endpoints, `workerauth.go` signature/token auth), `web` + `templates/` (session UI), `jobs` (queue, leases, retries, options), `jobtypes` (optional `job_type@version` schemas), `workers`, `auth`, `webhooks`, `email`, `middleware`, `config`, `db` (+ `migrations/NNN_*.sql`, embedded, run on every start).
 - `data-plane/cmd/worker/main.go`: poll loop, heartbeats every 15 s (answer carries cancel), per-job timeout. `internal/executor` (registry: `noop`, `sleep`, `echo_metadata`, `ollama_chat`, `llm.chat`), `internal/controlclient` (HTTP + Ed25519 request signing), `internal/identity` (worker key).
 - Flow: client `POST /api/v1/jobs` (API key) -> row in SQLite -> worker `POST /api/v1/worker/poll` with its capabilities, leases a matching job -> executor -> `.../complete` or `.../fail` -> webhook/email/`GET ?wait=10`. Workers connect outbound only; they self-register on first poll (token mode).
+- `updater/`: optional Telegram bot (`/update <totp>`) that deploys the newest `vX.Y[.Z]` release tag with green CI, via a request file picked up by the root-run `scripts/processor-update.sh` (systemd path unit in `deploy/systemd/`, installer `scripts/install-updater.sh`, `docker-compose.updater.yml`). Rollback on failed health check. See `docs/updater.md`.
 - Deployment/ops: `docs/` (see `docs/job-options.md`, `docs/job-types.md`, `docs/private-network.md`, `docs/WINDOWS_WORKER_SETUP.md`); `scripts/` = deploy/Windows helpers; `autonomy.manifest.json` is checked in CI.
 
 ## Conventions
@@ -35,6 +36,7 @@
 - `make lint` fails today when golangci-lint is installed (9 pre-existing errcheck/staticcheck findings in data-plane); CI does not run it. Don't treat as a regression.
 - Env: see `.env.example` (copy to `.env`, git-ignored; `*.env` and `.env.windows` too). `ENV=production` refuses short/default `SESSION_SECRET`/`WORKER_TOKEN` (>=32 chars, no `docker-dev-*`) and `ADMIN_PASSWORD=admin123`. Worker needs `CONTROL_PLANE_URL` plus `WORKER_TOKEN` or `WORKER_KEY_FILE`; `WORKER_AUTH` on the server is `token|signature|any`.
 - The control plane never serves its worker token; don't add a route that does. Windows scripts must not assume one (the old `/worker/config` did not exist).
+- Updater: never put `docker-compose.updater.yml` in the control plane's compose project (the update's `docker compose up` must not see the bot as an orphan; it has `name: processor-updater`). A TOTP code is spent only when a request is accepted; the bot never runs commands, the root script re-validates the tag (`^v[0-9]+\.[0-9]+(\.[0-9]+)?$`) and request id.
 - `lab/mock-llm/__pycache__/*.pyc` is tracked; running the mock-llm tests modifies it. `git checkout --` it, don't commit.
 - Secret scan (gitleaks, `.gitleaks.toml`) allowlists `docs/`, `.env.example`, `_test.go`; use placeholders like `pk_XXX` elsewhere.
 - Docs partly stale: `docs/architecture.md` and the README describe a public VPS; the owner's setup is the control plane on the edge server over Tailscale, GPU worker polling it (`docs/private-network.md`). Windows PC worker: `scripts/install-windows.ps1`, then `scripts/setup-windows-worker.ps1` (never run on Windows).
