@@ -1,0 +1,13 @@
+[Unit]
+Description=Update the processor control plane to the newest release tag
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/processor-updater/update.env
+Environment=STATE_DIR=@STATE_DIR@
+ExecStart=/usr/local/lib/processor-updater/processor-update.sh
+TimeoutStartSec=1800

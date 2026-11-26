@@ -1,0 +1,9 @@
+[Unit]
+Description=Processor update request from the Telegram updater bot
+
+[Path]
+PathExists=@STATE_DIR@/requests/update.request
+Unit=processor-update.service
+
+[Install]
+WantedBy=multi-user.target
